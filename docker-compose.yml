@@ -24,6 +24,8 @@ services:
     build: ./core-api
     volumes: ["./core-api:/app"]
     ports: ["8180:8000"]
+    environment:
+      PHP_CLI_SERVER_WORKERS: 8   # artisan serve xử lý song song (cần cho bài thử đồng thời B6)
     depends_on:
       mysql: { condition: service_healthy }
       redis: { condition: service_started }
