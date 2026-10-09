@@ -1,0 +1,32 @@
+# Môi trường dev BranchBook. Cổng host khác mặc định để không đụng MySQL/Redis cài sẵn trên máy.
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: branchbook
+      MYSQL_USER: branchbook
+      MYSQL_PASSWORD: branchbook        # chỉ dùng cho môi trường dev local
+      MYSQL_ROOT_PASSWORD: root          # chỉ dùng cho môi trường dev local
+    ports: ["13306:3306"]
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./infra/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports: ["16379:6379"]
+
+  core-api:
+    build: ./core-api
+    volumes: ["./core-api:/app"]
+    ports: ["8180:8000"]
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_started }
+
+volumes:
+  mysql-data:
