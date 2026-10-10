@@ -1,6 +1,7 @@
 # BranchBook — dự án học theo lộ trình 6 tuần
 
 Hệ thống đặt lịch đa chi nhánh (Laravel + NestJS + Next.js). Người dùng (Đạt) **tự xây** dự án này để học và lấy số liệu thật cho CV.
+- **Định hướng (chốt 2026-10-10):** product SaaS đa tenant cho chuỗi trung tâm nhỏ, khách hàng giả lập, có landing + tài khoản demo + deploy công khai để mang đi phỏng vấn. Cách tách tenant là quyết định của người dùng (ghi trong design doc/ADR).
 - Lộ trình: `/Users/ryantruong/Project/Orther/CV/content/learn/roadmap/` (online: https://cv.truongquocdat.id.vn/learn/roadmap/)
 - Lý thuyết: `/Users/ryantruong/Project/Orther/CV/content/learn/concepts/` (online: https://cv.truongquocdat.id.vn/learn/concepts/)
 - Đề bài tuần 1: `/Users/ryantruong/Project/Orther/CV/content/learn/week-1/` (online: https://cv.truongquocdat.id.vn/learn/week-1/)

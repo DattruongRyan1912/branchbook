@@ -4,6 +4,8 @@ Hệ thống đặt lịch đa chi nhánh (phòng/khung giờ) cho chuỗi trung
 
 Dự án học tập theo lộ trình 6 tuần, tập trung vào: thiết kế hệ thống, chống đặt trùng khi có nhiều request đồng thời, testing, queue, message broker, cloud.
 
+**Định hướng sản phẩm:** làm như một SaaS thật — nhiều chuỗi trung tâm (tenant) dùng chung hệ thống, dữ liệu tách theo tenant, có landing page, tài khoản demo và bản deploy công khai. Khách hàng là giả lập; số liệu chỉ lấy từ đo đạc/load test thật.
+
 ## Kiến trúc (dự kiến)
 
 ```
