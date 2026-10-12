@@ -7,7 +7,7 @@ Bốn service NestJS dùng chung một repo (`apps/`), vai trò theo spec, hiệ
 | `identity` | Đăng ký, đăng nhập, cấp/làm mới/thu hồi token, công khai public key |
 | `authz` | Gán vai trò theo chuỗi/chi nhánh |
 | `notification` | Inbox, gửi email, nhắc lịch |
-| `storage` | Upload/download qua presigned URL (MinIO) |
+| `storage` | Upload/download qua presigned URL (kho S3-compatible, chọn ở tuần 7 — MinIO đã ngừng phát hành image) |
 
 Công cụ: Vitest + oxlint + ESM (mặc định NestJS 12), build bằng rspack, pnpm 11.
 
