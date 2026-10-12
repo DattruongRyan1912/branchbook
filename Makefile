@@ -1,10 +1,19 @@
-.PHONY: up down sh artisan composer test fresh logs pint
+.PHONY: up up-all down ps logs sh artisan composer test test-platform fresh pint keys pg-init
 
-up:        ## Khởi động mysql, redis, booking (http://localhost:8180)
+up:        ## Hạ tầng + booking: MySQL, Redis, PostgreSQL, RabbitMQ, Mailpit, Traefik (gateway http://localhost:8100)
 	docker compose up -d --build
 
-down:
-	docker compose down
+up-all:    ## Thêm các service NestJS: identity, authz, notification, storage
+	docker compose --profile platform up -d --build
+
+down:      ## Dừng tất cả (kể cả service NestJS)
+	docker compose --profile platform down
+
+ps:
+	docker compose --profile platform ps
+
+logs:      ## make logs s=identity (mặc định booking)
+	docker compose --profile platform logs -f $(or $(s),booking)
 
 sh:        ## Mở shell trong container booking
 	docker compose exec booking sh
@@ -15,14 +24,22 @@ artisan:   ## make artisan c="route:list"
 composer:  ## make composer c="require vendor/package"
 	docker compose exec booking composer $(c)
 
-test:      ## make test f="--filter=Booking"
+test:      ## Test booking (Pest). make test f="--filter=Booking"
 	docker compose exec booking ./vendor/bin/pest $(f)
 
-fresh:     ## Tạo lại database + seed dữ liệu mẫu
+test-platform: ## Type-check + unit + e2e test các service NestJS (-l: không để Traefik coi container test là một bản identity)
+	docker compose --profile platform run --rm -l traefik.enable=false identity sh -c "pnpm typecheck && pnpm test && pnpm test:e2e"
+
+fresh:     ## Tạo lại database booking + seed
 	docker compose exec booking php artisan migrate:fresh --seed
 
-pint:      ## Format code theo chuẩn Laravel
+pg-init:   ## Chạy lại infra/postgres/init.sql (idempotent) — khi thêm service/DB mới vào volume đã có dữ liệu
+	docker compose exec -T postgres psql -U postgres -v ON_ERROR_STOP=1 < infra/postgres/init.sql
+
+pint:      ## Format code booking theo chuẩn Laravel
 	docker compose exec booking ./vendor/bin/pint
 
-logs:
-	docker compose logs -f booking
+keys:      ## Sinh cặp khoá RSA dev (storage/keys của booking) để ký/kiểm JWT tuần 1 — không commit
+	docker compose exec booking sh -c "mkdir -p storage/keys \
+	  && openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out storage/keys/dev-private.pem \
+	  && openssl pkey -in storage/keys/dev-private.pem -pubout -out storage/keys/dev-public.pem"

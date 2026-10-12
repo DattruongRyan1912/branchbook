@@ -1,7 +1,9 @@
 # Image dev cho booking (Laravel 13 cần PHP >= 8.3)
 FROM php:8.4-cli-alpine
 
-RUN docker-php-ext-install pdo_mysql pcntl
+# openssl: sinh cặp khoá RSA dev cho JWT (make keys)
+RUN apk add --no-cache openssl \
+ && docker-php-ext-install pdo_mysql pcntl
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
