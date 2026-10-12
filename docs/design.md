@@ -1,6 +1,6 @@
 # BranchBook — Design Doc (v1)
 
-> Bài B1 của tuần 1. Trả lời từng mục ngắn gọn, có số liệu khi được. Xoá các dòng gợi ý (bắt đầu bằng `>`) khi viết xong.
+> Bài B1 (tuần 0 theo lịch 10 tuần). Trả lời từng mục ngắn gọn, có số liệu khi được. Xoá các dòng gợi ý (bắt đầu bằng `>`) khi viết xong.
 >
 > Mục 3, 4 (sở hữu dữ liệu), 6, 8, 9, 10 ghi lại từ buổi hỏi–đáp 2026-10-11/12. Phần đánh dấu *(lời giải mẫu)* là chỗ người viết đã xin xem lời giải. Mục còn dòng `>` là chưa trả lời.
 
@@ -28,7 +28,7 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 | storage | NestJS + kho S3-compatible (chọn ở tuần 7) | Upload/download file qua presigned URL |
 | web | Next.js | Giao diện |
 
-- Hạ tầng dùng chung: 1 MySQL, 1 PostgreSQL (mỗi service có database + user riêng, không truy vấn chéo), 1 Redis (tách theo tiền tố khoá), RabbitMQ, kho S3-compatible (MinIO đã ngừng phát hành image từ 09/2026 — chọn RustFS/Garage/SeaweedFS ở tuần 7).
+- Hạ tầng dùng chung: 1 MySQL, 1 PostgreSQL (mỗi service có database + user riêng, không truy vấn chéo), 1 Redis (tách theo tiền tố khoá), RabbitMQ, kho S3-compatible (image `minio/minio` đã ngừng phát hành từ 10/2025, không còn kéo được từ Docker Hub — chọn RustFS/Garage/SeaweedFS ở tuần 7).
 
 ### Event và thông báo
 - Event mang đủ dữ liệu mà service phát sở hữu, chỉ mang id với dữ liệu của service khác. Ví dụ `booking.cancelled`: `event_id`, `correlation_id`, `booking_id`, `user_id`, giờ bắt đầu, tên phòng, tên chi nhánh, lý do huỷ.

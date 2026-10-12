@@ -1,7 +1,12 @@
-.PHONY: help up up-all down ps logs sh artisan composer test test-platform fresh pint keys pg-init
+.PHONY: help setup up up-all down ps logs sh artisan composer test test-platform fresh pint keys pg-init
 
 help:      ## Liệt kê các lệnh
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
+
+setup:     ## Lần đầu sau khi clone: tạo .env, cài vendor, sinh APP_KEY cho booking (chạy lại an toàn)
+	test -f services/booking/.env || cp services/booking/.env.example services/booking/.env
+	docker compose run --rm --no-deps booking composer install --no-interaction
+	grep -q '^APP_KEY=base64:' services/booking/.env || docker compose run --rm --no-deps booking php artisan key:generate --no-interaction
 
 up:        ## Hạ tầng + booking: MySQL, Redis, PostgreSQL, RabbitMQ, Mailpit, Traefik (gateway http://localhost:8100)
 	docker compose up -d --build
@@ -30,8 +35,8 @@ composer:  ## make composer c="require vendor/package"
 test:      ## Test booking (Pest). make test f="--filter=Booking"
 	docker compose exec booking ./vendor/bin/pest $(f)
 
-test-platform: ## Type-check + unit + e2e test các service NestJS (-l: không để Traefik coi container test là một bản identity)
-	docker compose --profile platform run --rm -l traefik.enable=false identity sh -c "pnpm typecheck && pnpm test && pnpm test:e2e"
+test-platform: ## Type-check + lint + unit + e2e test các service NestJS (-l: không để Traefik coi container test là một bản identity)
+	docker compose --profile platform run --rm -l traefik.enable=false identity sh -c "pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e"
 
 fresh:     ## Tạo lại database booking + seed
 	docker compose exec booking php artisan migrate:fresh --seed

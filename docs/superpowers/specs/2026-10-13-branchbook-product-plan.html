@@ -68,7 +68,7 @@
 <header>
   <h1>BranchBook — Spec kế hoạch sản phẩm</h1>
   <div class="meta">
-    <span class="badge warn">Chờ duyệt</span><span class="badge">2026-10-13</span>
+    <span class="badge">Đã duyệt</span><span class="badge">2026-10-13</span>
     Kết quả brainstorm 2026-10-11 → 2026-10-13. Quyết định kỹ thuật chi tiết nằm ở <code>docs/design.md</code>.
   </div>
 </header>
@@ -184,7 +184,7 @@
   <tr><td>web</td><td>Next.js</td><td>Landing (Claude), màn app (người dùng)</td></tr>
 </table></div>
 
-<p><strong>Hạ tầng dùng chung:</strong> 1 MySQL, 1 PostgreSQL (mỗi service một database + user riêng, không truy vấn chéo), 1 Redis (tách theo tiền tố khoá), RabbitMQ, Mailpit (dev); kho S3-compatible chọn ở tuần 7 vì MinIO đã ngừng phát hành image (09/2026). Tải ước tính ~2,5 GB RAM; VPS còn ~8,6 GB trống (7 CPU, 11 GB RAM).</p>
+<p><strong>Hạ tầng dùng chung:</strong> 1 MySQL, 1 PostgreSQL (mỗi service một database + user riêng, không truy vấn chéo), 1 Redis (tách theo tiền tố khoá), RabbitMQ, Mailpit (dev); kho S3-compatible chọn ở tuần 7 vì image MinIO đã ngừng phát hành từ 10/2025. Tải ước tính ~2,5 GB RAM; VPS còn ~8,6 GB trống (7 CPU, 11 GB RAM).</p>
 
 <h3>Cấu trúc repo đích</h3>
 <div class="pre"><button class="copy">Copy</button><pre><code>branchbook/
@@ -222,7 +222,7 @@
   <tr><td><strong>0</strong><br>(đang làm)</td><td>Hoàn tất B1</td><td>Câu 4–5, xác thực giữa service; mục 1, 2, 5, 7 + bảng dữ liệu; ADR-0001, ADR-0002; tự trình bày 10 phút</td><td>Dựng khung repo (<code>services/</code>, NestJS monorepo có health check, Compose đủ hạ tầng, CI chạy test PHP + Node); viết lại đề tuần 1; cập nhật site học</td><td>design.md đủ 11 mục</td></tr>
   <tr><td>1</td><td>Booking core</td><td>Schema có tenant, API xem slot, đặt chống trùng, huỷ có Idempotency-Key; auth tạm bằng token ký khoá test</td><td>—</td><td>≥ 15 test; N request đồng thời → 0 đặt trùng</td></tr>
   <tr><td>2</td><td>Identity cơ bản</td><td>Đăng ký, đăng nhập, argon2, JWT RS256 + public key, refresh rotation + phát hiện dùng lại; booking và <code>libs/auth</code> tự kiểm token</td><td>Cấu hình Traefik</td><td>Test luồng token</td></tr>
-  <tr><td>3</td><td>Web mỏng + <strong>demo v0.1</strong></td><td>Next.js: đăng nhập, xem slot, đặt/huỷ, lịch quản lý (polling)</td><td>Landing, deploy VPS, seed 2 chuỗi, đăng nhập nhanh, reset dữ liệu demo mỗi đêm</td><td>Link demo công khai</td></tr>
+  <tr><td>3</td><td>Web mỏng + <strong>demo v0.1</strong></td><td>Next.js: đăng nhập, xem slot, đặt/huỷ, lịch quản lý (polling)</td><td>Landing, deploy VPS, dữ liệu demo 2 chuỗi dựng trên factory/seeder của người dùng, đăng nhập nhanh, reset dữ liệu demo mỗi đêm</td><td>Link demo công khai</td></tr>
   <tr><td>4</td><td>Thu hồi token, chống dò mật khẩu</td><td>Bảng <code>revocations</code>, Redis Stream, danh sách trong RAM, Octane <code>tick</code>; giới hạn đăng nhập sai, cookie thiết bị, Have I Been Pwned</td><td>Chuyển booking sang Octane trong Docker</td><td>Thời gian từ “đăng xuất tất cả” đến lúc bị từ chối; test Redis chết / mất dữ liệu</td></tr>
   <tr><td>5</td><td>Broker + notification</td><td>RabbitMQ, outbox (booking), inbox (notification); email xác nhận, nhắc lịch, gộp email</td><td>—</td><td>Giết notification giữa chừng → 0 email mất</td></tr>
   <tr><td>6</td><td>Authz</td><td>Vai trò, quyền trong token (C), <code>role.changed</code> → mục chặn, bản chụp quyền khi authz chết; xác thực giữa service</td><td>—</td><td>Test 4 kịch bản authz chết</td></tr>

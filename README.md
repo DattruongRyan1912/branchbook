@@ -9,7 +9,7 @@ Dự án học theo lộ trình 10 tuần, xây theo kiến trúc **microservice
 - Thiết kế (nguồn quyết định kỹ thuật): [`docs/design.md`](docs/design.md)
 - Kế hoạch sản phẩm: [`docs/superpowers/specs/2026-10-13-branchbook-product-plan.html`](docs/superpowers/specs/2026-10-13-branchbook-product-plan.html)
 
-## Kiến trúc
+## Kiến trúc (đích)
 
 ```
                          Traefik (gateway)
@@ -19,6 +19,8 @@ Dự án học theo lộ trình 10 tuần, xây theo kiến trúc **microservice
                PostgreSQL  PostgreSQL MySQL+Redis   PostgreSQL   kho S3 (tuần 7)
                                           └── outbox ──▶ RabbitMQ ──▶ notification
 ```
+
+Hiện có: booking, gateway Traefik và 4 app NestJS mới có `/health`; `web/` có từ tuần 3, kho S3 từ tuần 7.
 
 | Thư mục | Nội dung |
 |---|---|
@@ -31,12 +33,20 @@ Dự án học theo lộ trình 10 tuần, xây theo kiến trúc **microservice
 
 Yêu cầu: Docker. Không cần cài PHP trên máy.
 
+Lần đầu sau khi clone:
+
+```bash
+make setup
+make up && make fresh
+```
+
 ```bash
 make               # liệt kê các lệnh (make help)
+make setup         # lần đầu sau khi clone: .env, vendor, APP_KEY
 make up            # hạ tầng + booking → http://localhost:8180/up, gateway http://localhost:8100/booking/up
 make up-all        # thêm identity, authz, notification, storage → http://localhost:8100/<service>/health
 make test          # Pest của booking trên MySQL branchbook_testing
-make test-platform # type-check + unit + e2e test các service NestJS
+make test-platform # type-check + lint + unit + e2e test các service NestJS
 make keys          # sinh cặp khoá RSA dev để ký/kiểm JWT (tuần 1); đã có thì giữ nguyên
 make pg-init       # chạy lại init PostgreSQL khi thêm service/DB mới
 make fresh         # tạo lại database booking + seed
