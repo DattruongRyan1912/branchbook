@@ -30,6 +30,13 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 
 - Hạ tầng dùng chung: 1 MySQL, 1 PostgreSQL (mỗi service có database + user riêng, không truy vấn chéo), 1 Redis (tách theo tiền tố khoá), RabbitMQ, MinIO.
 
+### Event và thông báo
+- Event mang đủ dữ liệu mà service phát sở hữu, chỉ mang id với dữ liệu của service khác. Ví dụ `booking.cancelled`: `event_id`, `correlation_id`, `booking_id`, `user_id`, giờ bắt đầu, tên phòng, tên chi nhánh, lý do huỷ.
+- Notification giữ bản sao `user_id → email, tên, ngôn ngữ` (chỉ trường cần dùng), nạp toàn bộ một lần rồi nghe `user.updated`; nhận `user.anonymized` thì ẩn danh bản sao. Lúc gửi email không phụ thuộc identity.
+- Gộp email theo đợt: mọi event sinh ra từ một thao tác mang chung `correlation_id`; notification gom theo `(user_id, correlation_id)` trong 30 giây rồi gửi một email. Event đến muộn thì thành email thứ hai — thừa chứ không thiếu.
+- Inbox: event được ghi vào bảng `pending_notifications` (`unique(event_id)` chống nhận trùng) rồi mới ack với RabbitMQ.
+- Gửi: gửi email trước, đánh dấu `sent_at` sau (at-least-once — trùng còn hơn mất). Nhiều bản notification nhặt việc bằng `FOR UPDATE SKIP LOCKED`.
+
 ## 4. Mô hình dữ liệu
 
 ### Sở hữu dữ liệu
@@ -120,7 +127,6 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 
 ## 11. Còn mở
 - Ngưỡng đăng nhập sai (mấy lần, trong bao lâu); refresh token có hạn tuyệt đối không; khoá đánh dấu kiểm mấy giây một lần.
-- Nội dung event `booking.cancelled`; notification lấy email từ đâu; gộp email theo đợt huỷ.
 - Xác thực giữa các service (authz gọi API nội bộ của booking).
 - Saga cho luồng chủ chuỗi tự đăng ký (identity + booking + authz).
 - Bảng đồng bộ/bất đồng bộ cho từng cặp service.
