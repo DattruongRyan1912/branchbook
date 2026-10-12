@@ -1,15 +1,32 @@
 # Cấu hình tĩnh Traefik (dev). Route khai báo bằng label trên từng service trong docker-compose.yml.
+global:
+  checkNewVersion: false      # image đã pin, không cần gọi ra ngoài kiểm tra phiên bản
+  sendAnonymousUsage: false
+
 entryPoints:
   web:
     address: ":80"
+    http:
+      aliasHeadersStrategy: delete   # chặn X_Forwarded_For… giả header do Traefik đặt (PHP coi _ và - như nhau)
+      encodedCharacters:             # từ chối %2F, %5C, %00 trong path để không lách luật theo path
+        allowEncodedSlash: false
+        allowEncodedBackSlash: false
+        allowEncodedNullCharacter: false
+  traefik:                           # entrypoint của dashboard (api.insecure)
+    address: ":8080"
+    http:
+      aliasHeadersStrategy: delete
 
 providers:
   docker:
     exposedByDefault: false   # chỉ service có label traefik.enable=true mới được định tuyến
+    constraints: "Label(`com.docker.compose.project`, `branchbook`)"   # bỏ qua container của project khác
 
 api:
   dashboard: true
   insecure: true              # dashboard ở cổng 8080 trong container — chỉ dùng cho dev
+
+accessLog: {}
 
 log:
   level: INFO

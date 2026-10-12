@@ -52,7 +52,7 @@ services:
     ports: ["127.0.0.1:11025:1025", "127.0.0.1:18025:8025"]   # SMTP, giao diện web
 
   traefik:
-    image: traefik:v3
+    image: traefik:v3.7
     ports: ["127.0.0.1:8100:80", "127.0.0.1:8101:8080"]   # gateway, dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -69,7 +69,7 @@ services:
       redis: { condition: service_started }
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.booking.rule=PathPrefix(`/booking`)"
+      - "traefik.http.routers.booking.rule=Path(`/booking`) || PathPrefix(`/booking/`)"
       - "traefik.http.routers.booking.middlewares=booking-strip"
       - "traefik.http.middlewares.booking-strip.stripprefix.prefixes=/booking"
       - "traefik.http.services.booking.loadbalancer.server.port=8000"
