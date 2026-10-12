@@ -20,6 +20,36 @@ services:
     image: redis:7-alpine
     ports: ["16379:6379"]
 
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres        # chỉ dùng cho môi trường dev local
+    ports: ["15432:5432"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: branchbook   # guest chỉ đăng nhập được từ localhost trong container
+      RABBITMQ_DEFAULT_PASS: branchbook   # chỉ dùng cho môi trường dev local
+    ports: ["25672:5672", "25673:15672"]
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports: ["11025:1025", "18025:8025"]   # SMTP, giao diện web
+
   booking:
     build: ./services/booking
     volumes: ["./services/booking:/app"]
@@ -32,3 +62,5 @@ services:
 
 volumes:
   mysql-data:
+  postgres-data:
+  rabbitmq-data:
