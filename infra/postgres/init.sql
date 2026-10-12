@@ -14,6 +14,10 @@ FROM svc, unnest(ARRAY[svc.name, svc.name || '_testing']) AS d
 WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = d)
 \gexec
 
+SELECT format('ALTER DATABASE %I OWNER TO %I', d, svc.name)
+FROM svc, unnest(ARRAY[svc.name, svc.name || '_testing']) AS d
+\gexec
+
 SELECT format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', d)
 FROM svc, unnest(ARRAY[svc.name, svc.name || '_testing']) AS d
 \gexec

@@ -1,4 +1,7 @@
-.PHONY: up up-all down ps logs sh artisan composer test test-platform fresh pint keys pg-init
+.PHONY: help up up-all down ps logs sh artisan composer test test-platform fresh pint keys pg-init
+
+help:      ## Liệt kê các lệnh
+	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
 
 up:        ## Hạ tầng + booking: MySQL, Redis, PostgreSQL, RabbitMQ, Mailpit, Traefik (gateway http://localhost:8100)
 	docker compose up -d --build
@@ -9,11 +12,11 @@ up-all:    ## Thêm các service NestJS: identity, authz, notification, storage
 down:      ## Dừng tất cả (kể cả service NestJS)
 	docker compose --profile platform down
 
-ps:
+ps:        ## Trạng thái các container
 	docker compose --profile platform ps
 
 logs:      ## make logs s=identity (mặc định booking)
-	docker compose --profile platform logs -f $(or $(s),booking)
+	docker compose --profile platform logs -f --tail=100 $(or $(s),booking)
 
 sh:        ## Mở shell trong container booking
 	docker compose exec booking sh
@@ -39,7 +42,7 @@ pg-init:   ## Chạy lại infra/postgres/init.sql (idempotent) — khi thêm se
 pint:      ## Format code booking theo chuẩn Laravel
 	docker compose exec booking ./vendor/bin/pint
 
-keys:      ## Sinh cặp khoá RSA dev (storage/keys của booking) để ký/kiểm JWT tuần 1 — không commit
+keys:      ## Sinh cặp khoá RSA dev (storage/keys của booking) để ký/kiểm JWT tuần 1 — không commit; đã có thì giữ nguyên (muốn sinh lại: xoá services/booking/storage/keys)
 	docker compose exec booking sh -c "mkdir -p storage/keys \
-	  && openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out storage/keys/dev-private.pem \
+	  && { [ -f storage/keys/dev-private.pem ] || openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out storage/keys/dev-private.pem; } \
 	  && openssl pkey -in storage/keys/dev-private.pem -pubout -out storage/keys/dev-public.pem"
