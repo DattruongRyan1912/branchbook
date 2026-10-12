@@ -1,4 +1,5 @@
 # Môi trường dev BranchBook. Cổng host khác mặc định để không đụng MySQL/Redis cài sẵn trên máy.
+name: branchbook
 services:
   mysql:
     image: mysql:8.4
@@ -74,7 +75,81 @@ services:
       - "traefik.http.middlewares.booking-strip.stripprefix.prefixes=/booking"
       - "traefik.http.services.booking.loadbalancer.server.port=8000"
 
+  platform-deps:   # cài node_modules một lần vào volume dùng chung cho 4 app NestJS
+    build: ./services/platform
+    profiles: ["platform"]
+    volumes:
+      - ./services/platform:/app
+      - platform-node-modules:/app/node_modules
+    # store đặt trong volume node_modules: không ghi .pnpm-store ra thư mục host (bind mount)
+    command: ["pnpm", "install", "--frozen-lockfile", "--store-dir", "/app/node_modules/.pnpm-store"]
+
+  identity:
+    build: ./services/platform
+    profiles: ["platform"]
+    environment: { APP: identity, PORT: "3000" }
+    volumes:
+      - ./services/platform:/app
+      - platform-node-modules:/app/node_modules
+    depends_on:
+      platform-deps: { condition: service_completed_successfully }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.identity.rule=Path(`/identity`) || PathPrefix(`/identity/`)"
+      - "traefik.http.routers.identity.middlewares=identity-strip"
+      - "traefik.http.middlewares.identity-strip.stripprefix.prefixes=/identity"
+      - "traefik.http.services.identity.loadbalancer.server.port=3000"
+
+  authz:
+    build: ./services/platform
+    profiles: ["platform"]
+    environment: { APP: authz, PORT: "3000" }
+    volumes:
+      - ./services/platform:/app
+      - platform-node-modules:/app/node_modules
+    depends_on:
+      platform-deps: { condition: service_completed_successfully }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authz.rule=Path(`/authz`) || PathPrefix(`/authz/`)"
+      - "traefik.http.routers.authz.middlewares=authz-strip"
+      - "traefik.http.middlewares.authz-strip.stripprefix.prefixes=/authz"
+      - "traefik.http.services.authz.loadbalancer.server.port=3000"
+
+  notification:
+    build: ./services/platform
+    profiles: ["platform"]
+    environment: { APP: notification, PORT: "3000" }
+    volumes:
+      - ./services/platform:/app
+      - platform-node-modules:/app/node_modules
+    depends_on:
+      platform-deps: { condition: service_completed_successfully }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.notification.rule=Path(`/notification`) || PathPrefix(`/notification/`)"
+      - "traefik.http.routers.notification.middlewares=notification-strip"
+      - "traefik.http.middlewares.notification-strip.stripprefix.prefixes=/notification"
+      - "traefik.http.services.notification.loadbalancer.server.port=3000"
+
+  storage:
+    build: ./services/platform
+    profiles: ["platform"]
+    environment: { APP: storage, PORT: "3000" }
+    volumes:
+      - ./services/platform:/app
+      - platform-node-modules:/app/node_modules
+    depends_on:
+      platform-deps: { condition: service_completed_successfully }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.storage.rule=Path(`/storage`) || PathPrefix(`/storage/`)"
+      - "traefik.http.routers.storage.middlewares=storage-strip"
+      - "traefik.http.middlewares.storage-strip.stripprefix.prefixes=/storage"
+      - "traefik.http.services.storage.loadbalancer.server.port=3000"
+
 volumes:
   mysql-data:
   postgres-data:
   rabbitmq-data:
+  platform-node-modules:
