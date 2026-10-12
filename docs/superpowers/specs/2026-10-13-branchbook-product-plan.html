@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BranchBook — Spec kế hoạch sản phẩm (2026-10-13)</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1d2330; --muted: #5b6475; --line: #e3e7ee;
+    --card: #f6f8fb; --accent: #2a78d6; --accent-soft: #e8f1fc;
+    --ok: #1f8a4c; --warn: #b86e00; --code-bg: #0f1726; --code-fg: #e6edf7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10141c; --fg: #e4e8ef; --muted: #9aa4b5; --line: #273041;
+      --card: #171d28; --accent: #6aa8f0; --accent-soft: #1b2a40;
+      --ok: #4cc27f; --warn: #e0a040; --code-bg: #0a0f18; --code-fg: #dfe7f3;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 20px 80px; }
+  header h1 { margin: 0 0 6px; font-size: 1.9rem; line-height: 1.25; }
+  header .meta { color: var(--muted); font-size: .95rem; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600;
+           background: var(--accent-soft); color: var(--accent); margin-right: 6px; }
+  .badge.warn { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+  nav.toc { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 24px 0; }
+  nav.toc ol { margin: 6px 0 0; padding-left: 20px; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  h2 { margin: 44px 0 12px; font-size: 1.45rem; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+  h3 { margin: 28px 0 8px; font-size: 1.15rem; }
+  p, li { max-width: 78ch; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 14px 0; }
+  .card.note { border-left: 4px solid var(--accent); }
+  .card.warn { border-left: 4px solid var(--warn); }
+  .table-wrap { overflow-x: auto; margin: 12px 0; border: 1px solid var(--line); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: .94rem; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th { background: var(--card); font-weight: 600; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88em;
+         background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  :not(pre) > code { overflow-wrap: anywhere; }
+  .pre { position: relative; margin: 14px 0; }
+  pre { margin: 0; background: var(--code-bg); color: var(--code-fg); border-radius: 10px; padding: 16px 18px;
+        overflow-x: auto; font: 13.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  pre code { background: none; border: 0; padding: 0; color: inherit; font-size: inherit; }
+  .copy { position: absolute; top: 8px; right: 8px; border: 1px solid #3a4558; background: #1b2434; color: #cfd8e6;
+          border-radius: 6px; padding: 3px 10px; font-size: .8rem; cursor: pointer; }
+  .copy:hover { background: #24304a; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .todo { color: var(--warn); font-weight: 600; }
+  footer { margin-top: 56px; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--line); padding-top: 14px; }
+  @media (max-width: 640px) {
+    .wrap { padding: 20px 14px 60px; }
+    header h1 { font-size: 1.5rem; }
+    th, td { padding: 8px 9px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>BranchBook — Spec kế hoạch sản phẩm</h1>
+  <div class="meta">
+    <span class="badge warn">Chờ duyệt</span><span class="badge">2026-10-13</span>
+    Kết quả brainstorm 2026-10-11 → 2026-10-13. Quyết định kỹ thuật chi tiết nằm ở <code>docs/design.md</code>.
+  </div>
+</header>
+
+<nav class="toc">
+  <strong>Mục lục</strong>
+  <ol>
+    <li><a href="#tong-quan">Tổng quan &amp; nguyên tắc</a></li>
+    <li><a href="#quyet-dinh">Các lựa chọn đã chốt</a></li>
+    <li><a href="#san-pham">Phần 1 — Sản phẩm</a></li>
+    <li><a href="#kien-truc">Phần 2 — Kiến trúc</a></li>
+    <li><a href="#lich">Phần 3 — Lịch tuần &amp; chia việc</a></li>
+    <li><a href="#hoan-thanh">Phần 4 — Tiêu chí hoàn thành, số liệu, rủi ro</a></li>
+    <li><a href="#tiep-theo">Bước tiếp theo sau khi duyệt</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="tong-quan">1. Tổng quan &amp; nguyên tắc</h2>
+
+<p><strong>BranchBook</strong> là SaaS đặt lịch cho các chuỗi trung tâm nhỏ có nhiều chi nhánh (đa tenant), xây theo kiến trúc <strong>microservice ngay từ đầu</strong>. Người dùng (Đạt) tự xây phần lõi để học sâu, có bản demo công khai mang đi phỏng vấn, và lấy số liệu đo thật cho CV.</p>
+
+<div class="card note">
+  <strong>Ba nguyên tắc xuyên suốt</strong>
+  <ol>
+    <li><strong>Đào sâu hơn làm nhanh.</strong> Mỗi tuần có tiêu chí hoàn thành; chưa đạt thì kéo dài tuần đó, không ép theo ngày. Không bỏ qua câu hỏi thiết kế để kịp demo.</li>
+    <li><strong>Chế độ học.</strong> Người dùng tự viết thiết kế, service, test, màn app. Claude gợi ý theo 3 mức (câu hỏi định hướng → gợi ý cụ thể → lời giải mẫu); lời giải mẫu chỉ đưa khi được xin.</li>
+    <li><strong>Chỉ ghi số đo thật.</strong> Bullet CV chỉ dùng số liệu đã đo (test, thử đồng thời, p95, chi phí).</li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="quyet-dinh">2. Các lựa chọn đã chốt</h2>
+
+<div class="table-wrap"><table>
+  <tr><th>Chủ đề</th><th>Đã chọn</th><th>Phương án đã loại</th></tr>
+  <tr><td>Định hướng</td><td>Product SaaS đa tenant, mang đi phỏng vấn</td><td>Dự án học thuần</td></tr>
+  <tr><td>Khách hàng</td><td>Giả lập (không có khách thật)</td><td>Tìm trung tâm thật dùng thử</td></tr>
+  <tr><td>Loại hình</td><td>Chuỗi trung tâm âm nhạc (đặt phòng theo giờ, membership)</td><td>Gym/yoga (lớp có sức chứa), coworking</td></tr>
+  <tr><td>Onboarding</td><td>Seed sẵn 2 chuỗi, chủ chuỗi tự đăng ký làm sau</td><td>Tự đăng ký ngay; bỏ đa tenant</td></tr>
+  <tr><td>Kiến trúc</td><td><strong>Microservice ngay từ đầu</strong></td><td>Tách dần từ modular monolith; giữ kiến trúc cũ</td></tr>
+  <tr><td>Ngôn ngữ</td><td>Laravel: booking. NestJS: identity, authz, notification, storage</td><td>Chia 2 Laravel / 3 NestJS; Laravel làm nhiều hơn</td></tr>
+  <tr><td>Identity</td><td>Tự viết bằng NestJS</td><td>Keycloak; tự viết bằng Laravel</td></tr>
+  <tr><td>Gateway</td><td>Traefik</td><td>Kong OSS; tự viết NestJS gateway</td></tr>
+  <tr><td>Deploy demo</td><td>VPS hiện có + Cloudflare Tunnel, subdomain công khai</td><td>AWS ngay từ đầu; PaaS miễn phí</td></tr>
+  <tr><td>Frontend</td><td>Next.js bản mỏng làm sớm (tuần 3), real-time sau</td><td>Blade/Inertia; giữ Next.js ở cuối</td></tr>
+  <tr><td>Chia việc</td><td>Người dùng làm lõi, Claude làm vỏ</td><td>Người dùng làm hết; Claude làm cả frontend</td></tr>
+</table></div>
+
+<!-- ============================================================ -->
+<h2 id="san-pham">3. Phần 1 — Sản phẩm</h2>
+
+<h3>Khách hàng giả lập</h3>
+<ul>
+  <li><strong>Giai Điệu Music</strong> (tenant chính): chuỗi trung tâm âm nhạc ở TP.HCM, 4 chi nhánh (Q1, Q3, Bình Thạnh, Thủ Đức), mỗi chi nhánh 6–10 phòng (piano, guitar, phòng ban nhạc), khoảng 1.200 hội viên.
+    <br><em>Vấn đề hiện tại:</em> hội viên đặt phòng qua Zalo/điện thoại, lễ tân ghi Google Sheet; giờ cao điểm 18–21h hay trùng phòng; hội viên không biết phòng nào trống; quản lý không xem được lịch tổng.</li>
+  <li><strong>Rhythm House</strong> (tenant thứ hai): 2 chi nhánh — để chứng minh dữ liệu giữa các chuỗi tách biệt.</li>
+</ul>
+
+<h3>Vai trò</h3>
+<div class="table-wrap"><table>
+  <tr><th>Vai trò</th><th>Từ bản</th><th>Làm được gì</th></tr>
+  <tr><td>Hội viên</td><td>v0.1</td><td>Xem slot trống theo chi nhánh/ngày, đặt, huỷ (trước 2 giờ), xem lịch của mình</td></tr>
+  <tr><td>Quản lý chi nhánh</td><td>v0.1</td><td>Xem lịch theo ngày của chi nhánh mình, thấy slot vừa được đặt</td></tr>
+  <tr><td>Chủ chuỗi</td><td>v1.0</td><td>Tự đăng ký, tạo chi nhánh/phòng, mời quản lý, đóng chi nhánh</td></tr>
+</table></div>
+
+<h3>Các phiên bản</h3>
+<div class="table-wrap"><table>
+  <tr><th>Bản</th><th>Cuối tuần</th><th>Nội dung</th></tr>
+  <tr><td><strong>v0.1</strong></td><td>3</td><td>Đăng nhập; xem/đặt/huỷ slot chống trùng; lịch quản lý (polling); 2 chuỗi seed sẵn; nút đăng nhập nhanh theo vai trò; landing page; link công khai</td></tr>
+  <tr><td>v0.2</td><td>5</td><td>Thu hồi token, chống dò mật khẩu; email xác nhận, nhắc lịch, gộp email theo đợt</td></tr>
+  <tr><td><strong>v1.0</strong></td><td>7</td><td>Phân quyền đầy đủ theo chuỗi/chi nhánh; chủ chuỗi tự đăng ký; ảnh phòng, logo chuỗi; đóng chi nhánh</td></tr>
+  <tr><td>v1.1</td><td>8</td><td>Real-time qua WebSocket; E2E; theo dõi một request xuyên service</td></tr>
+  <tr><td>v1.2</td><td>9–10</td><td>Bản đo trên AWS; chạy trên K8s (kind); tính năng AI “đặt bằng câu nói” (gõ “phòng piano tối thứ 6 ở Q3” → gợi ý slot trống)</td></tr>
+</table></div>
+
+<p><strong>Không làm:</strong> thanh toán thật, app mobile native, phân quyền tuỳ chỉnh, lớp học nhóm có sức chứa, đặt lịch lặp lại, đa ngôn ngữ.</p>
+
+<h3>Kịch bản demo 2 phút cho nhà tuyển dụng</h3>
+<ol>
+  <li>Vào landing → “Dùng thử” → chọn vai trò hội viên.</li>
+  <li>Đặt một slot, thấy nó trong “lịch của tôi”.</li>
+  <li>Mở tab thứ hai với vai trò quản lý, thấy slot vừa đặt.</li>
+  <li>Trang “Kỹ thuật”: link design doc, ADR, kết quả thử đặt đồng thời, CI badge.</li>
+</ol>
+
+<div class="card warn"><strong>Ranh giới với bài học:</strong> độ dài slot, giờ mở cửa, cách tách tenant trong dữ liệu, cách chống đặt trùng và mục tiêu p95 do người dùng tự chốt trong B1. Spec này chỉ đặt bối cảnh để có số liệu mà tính.</div>
+
+<!-- ============================================================ -->
+<h2 id="kien-truc">4. Phần 2 — Kiến trúc</h2>
+
+<div class="pre"><button class="copy">Copy</button><pre><code>                Cloudflare Tunnel (public: branchbook.truongquocdat.id.vn)
+                                  │
+                         Traefik (gateway)
+        ┌──────────┬──────────┬───┴──────┬──────────────┬──────────┐
+       web      identity     authz     booking      notification  storage
+     Next.js     NestJS      NestJS    Laravel        NestJS       NestJS
+                   │           │      (Octane)        │ WebSocket    │
+               PostgreSQL  PostgreSQL MySQL+Redis   PostgreSQL     MinIO
+                                          │ outbox
+                                          └──▶ RabbitMQ ──▶ notification (inbox)
+        identity ── Redis Stream "revocations" ──▶ mọi service (danh sách chặn trong RAM)</code></pre></div>
+
+<div class="table-wrap"><table>
+  <tr><th>Service</th><th>Stack</th><th>Việc chính</th></tr>
+  <tr><td>gateway</td><td>Traefik</td><td>Định tuyến theo path, rate limit, CORS</td></tr>
+  <tr><td>identity</td><td>NestJS + PostgreSQL</td><td>Đăng ký, đăng nhập, cấp/làm mới/thu hồi token, công khai public key; điều phối saga tự đăng ký</td></tr>
+  <tr><td>authz</td><td>NestJS + PostgreSQL</td><td>Gán vai trò theo chuỗi/chi nhánh</td></tr>
+  <tr><td>booking</td><td>Laravel 13 (Octane/Swoole) + MySQL + Redis</td><td>Chuỗi, chi nhánh, phòng, slot, gói hội viên, đặt/huỷ chống trùng, outbox</td></tr>
+  <tr><td>notification</td><td>NestJS + PostgreSQL</td><td>Inbox, gửi email, nhắc lịch, WebSocket</td></tr>
+  <tr><td>storage</td><td>NestJS + MinIO</td><td>Upload/download qua presigned URL</td></tr>
+  <tr><td>web</td><td>Next.js</td><td>Landing (Claude), màn app (người dùng)</td></tr>
+</table></div>
+
+<p><strong>Hạ tầng dùng chung:</strong> 1 MySQL, 1 PostgreSQL (mỗi service một database + user riêng, không truy vấn chéo), 1 Redis (tách theo tiền tố khoá), RabbitMQ, MinIO, Mailpit (dev). Tải ước tính ~2,5 GB RAM; VPS còn ~8,6 GB trống (7 CPU, 11 GB RAM).</p>
+
+<h3>Cấu trúc repo đích</h3>
+<div class="pre"><button class="copy">Copy</button><pre><code>branchbook/
+├─ services/
+│  ├─ booking/          # Laravel (đổi tên từ core-api/)
+│  └─ platform/         # NestJS monorepo
+│     ├─ apps/{identity,authz,notification,storage}
+│     └─ libs/{auth,messaging,logging}
+├─ web/                 # Next.js
+├─ gateway/             # cấu hình Traefik
+├─ infra/{compose,k8s,aws}/
+├─ e2e/                 # Playwright
+└─ docs/ (design.md, adr/, superpowers/specs/)</code></pre></div>
+
+<h3>Trạng thái các câu hỏi thiết kế (B1)</h3>
+<div class="table-wrap"><table>
+  <tr><th>Câu</th><th>Trạng thái</th><th>Ghi ở</th></tr>
+  <tr><td>1. Xác minh token, thời gian sống, thu hồi, chống dò mật khẩu</td><td class="ok">Đã chốt</td><td>design.md mục 6, 8, 10</td></tr>
+  <tr><td>2. Phân quyền (phương án C), authz chết</td><td class="ok">Đã chốt</td><td>design.md mục 6, 8</td></tr>
+  <tr><td>3. Sở hữu dữ liệu, đóng chi nhánh, nguyên tắc xoá</td><td class="ok">Đã chốt</td><td>design.md mục 4, 8</td></tr>
+  <tr><td>Event, inbox, gộp email</td><td class="ok">Đã chốt</td><td>design.md mục 3</td></tr>
+  <tr><td>4. Saga tự đăng ký</td><td class="todo">Đang làm</td><td>Đã chốt orchestration trong identity; còn thứ tự bước, lưu trạng thái saga, trạng thái trung gian</td></tr>
+  <tr><td>5. Đồng bộ / bất đồng bộ từng cặp service</td><td class="todo">Chưa làm</td><td>—</td></tr>
+  <tr><td>Xác thực giữa các service</td><td class="todo">Chưa làm</td><td>—</td></tr>
+  <tr><td>Phần lõi đề B1: bối cảnh, yêu cầu phi chức năng có số, bảng dữ liệu, API, chống đặt trùng, ADR-0001</td><td class="todo">Chưa làm</td><td>design.md mục 1, 2, 4, 5, 7</td></tr>
+</table></div>
+
+<!-- ============================================================ -->
+<h2 id="lich">5. Phần 3 — Lịch tuần &amp; chia việc</h2>
+
+<p>Mỗi tuần khoảng 22–24 giờ. Thứ tự theo phụ thuộc: phần lõi chống đặt trùng trước, mỗi tuần sau thêm một lớp và kiểm chứng quyết định đã ghi trong design.md. Claude viết đề bài của mỗi tuần trước khi tuần đó bắt đầu.</p>
+
+<div class="table-wrap"><table>
+  <tr><th>Tuần</th><th>Chủ đề</th><th>Người dùng (lõi)</th><th>Claude (vỏ)</th><th>Đầu ra đo được</th></tr>
+  <tr><td><strong>0</strong><br>(đang làm)</td><td>Hoàn tất B1</td><td>Câu 4–5, xác thực giữa service; mục 1, 2, 5, 7 + bảng dữ liệu; ADR-0001, ADR-0002; tự trình bày 10 phút</td><td>Dựng khung repo (<code>services/</code>, NestJS monorepo có health check, Compose đủ hạ tầng, CI chạy test PHP + Node); viết lại đề tuần 1; cập nhật site học</td><td>design.md đủ 11 mục</td></tr>
+  <tr><td>1</td><td>Booking core</td><td>Schema có tenant, API xem slot, đặt chống trùng, huỷ có Idempotency-Key; auth tạm bằng token ký khoá test</td><td>—</td><td>≥ 15 test; N request đồng thời → 0 đặt trùng</td></tr>
+  <tr><td>2</td><td>Identity cơ bản</td><td>Đăng ký, đăng nhập, argon2, JWT RS256 + public key, refresh rotation + phát hiện dùng lại; booking và <code>libs/auth</code> tự kiểm token</td><td>Cấu hình Traefik</td><td>Test luồng token</td></tr>
+  <tr><td>3</td><td>Web mỏng + <strong>demo v0.1</strong></td><td>Next.js: đăng nhập, xem slot, đặt/huỷ, lịch quản lý (polling)</td><td>Landing, deploy VPS, seed 2 chuỗi, đăng nhập nhanh, reset dữ liệu demo mỗi đêm</td><td>Link demo công khai</td></tr>
+  <tr><td>4</td><td>Thu hồi token, chống dò mật khẩu</td><td>Bảng <code>revocations</code>, Redis Stream, danh sách trong RAM, Octane <code>tick</code>; giới hạn đăng nhập sai, cookie thiết bị, Have I Been Pwned</td><td>Chuyển booking sang Octane trong Docker</td><td>Thời gian từ “đăng xuất tất cả” đến lúc bị từ chối; test Redis chết / mất dữ liệu</td></tr>
+  <tr><td>5</td><td>Broker + notification</td><td>RabbitMQ, outbox (booking), inbox (notification); email xác nhận, nhắc lịch, gộp email</td><td>—</td><td>Giết notification giữa chừng → 0 email mất</td></tr>
+  <tr><td>6</td><td>Authz</td><td>Vai trò, quyền trong token (C), <code>role.changed</code> → mục chặn, bản chụp quyền khi authz chết; xác thực giữa service</td><td>—</td><td>Test 4 kịch bản authz chết</td></tr>
+  <tr><td>7</td><td>Saga, storage, đóng chi nhánh</td><td>Chủ chuỗi tự đăng ký (orchestration trong identity), storage (MinIO, presigned URL), <code>branch.closed</code></td><td>—</td><td><strong>Demo v1.0</strong>; tỷ lệ saga hoàn tác đúng khi tiêm lỗi</td></tr>
+  <tr><td>8</td><td>Real-time, E2E, quan sát</td><td>WebSocket thay polling, Playwright E2E, <code>correlation_id</code> xuyên service</td><td>Stack log/tracing (OpenTelemetry + Grafana)</td><td>3 test E2E; trace một request qua nhiều service</td></tr>
+  <tr><td>9</td><td>AWS</td><td>Dựng bản đo, load test k6, đo p95, ước tính chi phí, tắt tài nguyên</td><td>Hỗ trợ ghi chú hạ tầng</td><td>p95 thật, chi phí thật</td></tr>
+  <tr><td>10</td><td>K8s, AI, portfolio</td><td>Chạy các service trên kind, liveness/readiness probe; tính năng “đặt bằng câu nói”</td><td>README, sơ đồ, cập nhật bullet CV từ số đo</td><td>Bullet CV có số</td></tr>
+</table></div>
+
+<!-- ============================================================ -->
+<h2 id="hoan-thanh">6. Phần 4 — Tiêu chí hoàn thành, số liệu, rủi ro</h2>
+
+<h3>Một tuần chỉ “xong” khi</h3>
+<ul>
+  <li>Test xanh trên CI (PHP và Node).</li>
+  <li>Mỗi quyết định quan trọng có một ADR do người dùng viết.</li>
+  <li>Code thực tế khác thiết kế thì sửa design.md, ghi “đã đổi vì…”.</li>
+  <li>Mỗi thay đổi đi qua PR và tự review theo checklist.</li>
+  <li>Tự trình bày phần của tuần trong 10 phút.</li>
+  <li>Claude cập nhật checklist tiến độ trong README sau khi người dùng xác nhận.</li>
+</ul>
+
+<h3>Số liệu sẽ đo (chỉ vào CV khi đã đo thật)</h3>
+<div class="table-wrap"><table>
+  <tr><th>Số liệu</th><th>Cách đo</th><th>Tuần</th></tr>
+  <tr><td>Số test, % coverage</td><td>CI (Pest, Jest)</td><td>Mọi tuần</td></tr>
+  <tr><td>N request đồng thời đặt cùng 1 slot → đúng 1 thành công</td><td>Script bắn song song</td><td>1</td></tr>
+  <tr><td>Thời gian từ “đăng xuất tất cả” đến lúc booking từ chối token</td><td>Test tích hợp</td><td>4</td></tr>
+  <tr><td>Giết notification giữa chừng N lần → số email mất (mục tiêu 0) và số email trùng</td><td>Test tiêm lỗi</td><td>5</td></tr>
+  <tr><td>Gây lỗi ở bước gán chủ → tỷ lệ saga hoàn tác đúng</td><td>Test tiêm lỗi</td><td>7</td></tr>
+  <tr><td>p95 của API đặt lịch ở X request/giây</td><td>k6, local và AWS</td><td>9</td></tr>
+  <tr><td>Chi phí AWS ước tính mỗi tháng</td><td>Bảng giá AWS + tài nguyên đã dựng</td><td>9</td></tr>
+</table></div>
+
+<div class="card note"><strong>Khung bullet CV</strong> (điền số sau khi đo):<br>
+<em>Thiết kế và xây dựng hệ thống đặt lịch đa tenant gồm 6 microservice (Laravel, NestJS, RabbitMQ). Chống đặt trùng: &lt;N&gt; request đồng thời → 0 đặt trùng. p95 &lt;x&gt; ms ở &lt;y&gt; RPS.</em></div>
+
+<h3>Chia việc</h3>
+<div class="table-wrap"><table>
+  <tr><th>Người dùng</th><th>Claude</th></tr>
+  <tr><td>Thiết kế, code các service, test, màn app Next.js, seeder, ADR</td><td>Hạ tầng (Compose, CI, Traefik, deploy, stack quan sát), landing, reset demo, đề bài từng tuần, trang lý thuyết, review theo thứ tự quy định, ghi câu trả lời hỏi–đáp vào design.md. Phần của Claude tự commit + push khi test xanh.</td></tr>
+</table></div>
+
+<h3>Tài liệu Claude cập nhật sau khi spec được duyệt</h3>
+<ul>
+  <li><strong>Site học</strong> (repo CV, <code>content/learn/</code>): module 0 (kiến trúc mới, lịch 10 tuần); viết lại đề tuần 1; 3 trang lý thuyết mới gom từ buổi hỏi–đáp — <em>Auth trong microservice</em>, <em>Event, outbox, inbox</em>, <em>Saga</em>.</li>
+  <li><strong>Repo BranchBook:</strong> README (kiến trúc, tiến độ theo lịch mới), CLAUDE.md (định hướng microservice).</li>
+</ul>
+
+<h3>Rủi ro</h3>
+<div class="table-wrap"><table>
+  <tr><th>Rủi ro</th><th>Cách xử lý</th></tr>
+  <tr><td>Phạm vi quá lớn (6 service, 10 tuần)</td><td>Một tuần kéo quá 2 tuần thì xem lại phạm vi; thứ tự cắt: AI, rồi storage</td></tr>
+  <tr><td>Có lịch phỏng vấn giữa chừng</td><td>Sau tuần 3 có demo v0.1; design.md đã đủ sâu để kể ngay từ bây giờ</td></tr>
+  <tr><td>VPS hết RAM khi thêm stack quan sát (~1 GB)</td><td>Hiện ~2,5 GB / 8,6 GB trống; theo dõi ở tuần 8</td></tr>
+  <tr><td>Demo công khai bị phá</td><td>Rate limit, reset dữ liệu mỗi đêm, không gửi email thật (hộp thư thử)</td></tr>
+  <tr><td>Phát sinh chi phí AWS</td><td>Dựng → đo → tắt trong tuần 9; checklist tắt tài nguyên, cảnh báo ngân sách</td></tr>
+</table></div>
+
+<!-- ============================================================ -->
+<h2 id="tiep-theo">7. Bước tiếp theo sau khi duyệt</h2>
+<ol>
+  <li>Claude viết <strong>kế hoạch triển khai</strong> cho phần việc của Claude ở tuần 0: dựng khung repo (đổi <code>core-api/</code> → <code>services/booking/</code>, NestJS monorepo, Compose, CI) và cập nhật tài liệu (site học, README, CLAUDE.md).</li>
+  <li>Người dùng tiếp tục B1: câu 4 (saga) → câu 5 → xác thực giữa service → phần lõi đề B1 → ADR → tự trình bày.</li>
+  <li>Khi B1 xong: bắt đầu tuần 1 (booking core).</li>
+</ol>
+
+<footer>BranchBook · spec kế hoạch sản phẩm · tạo 2026-10-13 · nguồn quyết định kỹ thuật: <code>docs/design.md</code></footer>
+</div>
+
+<script>
+  document.querySelectorAll('.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = btn.parentElement.querySelector('pre').innerText;
+      navigator.clipboard.writeText(text).then(function () {
+        btn.textContent = 'Đã copy';
+        setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+      });
+    });
+  });
+</script>
+</body>
+</html>
