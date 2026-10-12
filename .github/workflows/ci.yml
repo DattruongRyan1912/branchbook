@@ -5,13 +5,17 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   booking:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     services:
       mysql:
         image: mysql:8.4
@@ -44,11 +48,16 @@ jobs:
         run: composer install --no-interaction --prefer-dist --no-progress
       - name: Chuẩn bị .env
         run: cp .env.example .env && php artisan key:generate
+      - name: Kiểm tra MySQL (migrate vào branchbook_testing)
+        run: php artisan migrate --force
+        env:
+          DB_DATABASE: branchbook_testing   # .env.example trỏ "branchbook", DB này không có trong CI
       - name: Pest (MySQL thật)
         run: ./vendor/bin/pest
 
   platform:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: services/platform
