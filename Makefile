@@ -4,6 +4,7 @@ help:      ## Liệt kê các lệnh
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
 
 setup:     ## Lần đầu sau khi clone: tạo .env, cài vendor, sinh APP_KEY cho booking (chạy lại an toàn)
+	docker compose build booking
 	test -f services/booking/.env || cp services/booking/.env.example services/booking/.env
 	docker compose run --rm --no-deps booking composer install --no-interaction
 	grep -q '^APP_KEY=base64:' services/booking/.env || docker compose run --rm --no-deps booking php artisan key:generate --no-interaction

@@ -23,7 +23,7 @@ SaaS đặt lịch đa tenant cho chuỗi trung tâm (Laravel + NestJS + Next.js
 - Booking trực tiếp http://localhost:8180 · Gateway http://localhost:8100/<service> (Traefik, dashboard 8101) · MySQL `127.0.0.1:13306` (branchbook/branchbook) · Redis `127.0.0.1:16379` · PostgreSQL `127.0.0.1:15432` · RabbitMQ `127.0.0.1:35672` (UI 35673) · Mailpit UI 18025
 - Test booking chạy trên MySQL `branchbook_testing` (không dùng SQLite) để test được lock, unique, generated column. Test NestJS dùng database `<service>_testing` trên PostgreSQL.
 - Trong mạng Compose dùng tên service + cổng gốc: `mysql:3306`, `postgres:5432`, `redis:6379`, `rabbitmq:5672`, `mailpit:1025` (SMTP). App NestJS không mở cổng ra host, chỉ gọi qua `http://localhost:8100/<app>`.
-- Máy này: nếu `docker build`/`make up` báo `error getting credentials` thì mở lại/đăng nhập Docker Desktop; cách tạm: đặt `DOCKER_CONFIG` tới một thư mục có `config.json` không khai báo `credsStore` (giữ đường dẫn cli-plugins) và `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`.
+- Máy này: nếu `docker build`/`make up` báo `error getting credentials` thì mở lại/đăng nhập Docker Desktop; cách tạm: `mkdir -p /tmp/docker-nocreds && printf '{"auths":{},"cliPluginsExtraDirs":["/Applications/Docker.app/Contents/Resources/cli-plugins"]}' > /tmp/docker-nocreds/config.json` rồi chạy lệnh với `DOCKER_CONFIG=/tmp/docker-nocreds DOCKER_HOST=unix://$HOME/.docker/run/docker.sock` (ví dụ `DOCKER_CONFIG=/tmp/docker-nocreds DOCKER_HOST=unix://$HOME/.docker/run/docker.sock make up`).
 
 ## Quy ước
 
