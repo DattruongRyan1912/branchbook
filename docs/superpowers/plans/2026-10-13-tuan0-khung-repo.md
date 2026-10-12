@@ -6,7 +6,7 @@
 
 **Architecture:** Booking giữ nguyên code Laravel, chỉ đổi đường dẫn. Bốn app NestJS (identity, authz, notification, storage) nằm chung một monorepo, mỗi app chạy một container riêng từ cùng một image dev, bật bằng Compose profile `platform`. Traefik định tuyến theo tiền tố path (`/booking`, `/identity`, …) và bỏ tiền tố trước khi chuyển tiếp. Mỗi service có database + user PostgreSQL riêng, quyền CONNECT chéo bị thu hồi.
 
-**Tech Stack:** Docker Compose, Laravel 13 / PHP 8.4 / Pest 5, NestJS 12 / Node 24 / pnpm 11.5.2 / Jest, PostgreSQL 17, RabbitMQ 4, Mailpit, Traefik v3, GitHub Actions.
+**Tech Stack:** Docker Compose, Laravel 13 / PHP 8.4 / Pest 5, NestJS 12 / Node 24 / pnpm 11.5.2 / Vitest + oxlint (ESM), PostgreSQL 17, RabbitMQ 4, Mailpit, Traefik v3, GitHub Actions.
 
 **Spec:** `docs/superpowers/specs/2026-10-13-branchbook-product-plan.html` (Phần 2, Phần 3 tuần 0).
 
@@ -908,6 +908,10 @@ git commit -m "feat(platform): NestJS monorepo 4 app (identity, authz, notificat
 
 ---
 
+> **Đã chỉnh sau review Task 4 (2026-10-13):** Nest CLI 12 sinh **Vitest 4 + oxlint + ESM + rspack** (không phải Jest/eslint): e2e dùng `vitest.config.e2e.ts` có sẵn; script `typecheck` (`tsc -p tsconfig.json --noEmit`) vì rspack không kiểm kiểu; `tsconfig.json` dùng `include` thay cho solution-style; `ENV pnpm_config_store_dir` trong Dockerfile; compose gộp bằng anchor `x-platform`, một image `branchbook-platform-dev`; `build:all` = `nest build --all`; bỏ script `build`/`start`/`start:dev`. Xem commit sau `52eb8c1`.
+
+---
+
 ### Task 5: Makefile mới và cặp khoá RSA dev
 
 **Files:**
@@ -941,6 +945,34 @@ CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000", "--no-reload"]
 printf '/storage/keys\n' >> services/booking/.gitignore
 ```
 
+- [ ] **Step 2b: `init.sql` khai báo danh sách service một lần** (góp ý review Task 2)
+
+Ghi đè `infra/postgres/init.sql`:
+
+```sql
+-- Mỗi service NestJS một user + database riêng (dev). Thu hồi CONNECT của PUBLIC
+-- để service này không kết nối được vào database của service khác.
+-- Idempotent: chạy lại an toàn (make pg-init). Thêm service mới: chỉ sửa danh sách ngay dưới đây.
+CREATE TEMP TABLE svc (name text PRIMARY KEY);
+INSERT INTO svc VALUES ('identity'), ('authz'), ('notification');
+
+SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', name, name)
+FROM svc
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = svc.name)
+\gexec
+
+SELECT format('CREATE DATABASE %I OWNER %I', d, svc.name)
+FROM svc, unnest(ARRAY[svc.name, svc.name || '_testing']) AS d
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = d)
+\gexec
+
+SELECT format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', d)
+FROM svc, unnest(ARRAY[svc.name, svc.name || '_testing']) AS d
+\gexec
+```
+
+Kiểm tra: `make pg-init` chạy 2 lần đều thoát 0; xoá volume `branchbook_postgres-data` rồi `docker compose up -d postgres` → đủ 6 database, `authz` vẫn bị từ chối khi vào `identity`.
+
 - [ ] **Step 3: Ghi đè `Makefile`**
 
 ```make
@@ -973,8 +1005,8 @@ composer:  ## make composer c="require vendor/package"
 test:      ## Test booking (Pest). make test f="--filter=Booking"
 	docker compose exec booking ./vendor/bin/pest $(f)
 
-test-platform: ## Unit + e2e test các service NestJS
-	docker compose --profile platform run --rm identity sh -c "pnpm test && pnpm test:e2e"
+test-platform: ## Type-check + unit + e2e test các service NestJS (-l: không để Traefik coi container test là một bản identity)
+	docker compose --profile platform run --rm -l traefik.enable=false identity sh -c "pnpm typecheck && pnpm test && pnpm test:e2e"
 
 fresh:     ## Tạo lại database booking + seed
 	docker compose exec booking php artisan migrate:fresh --seed
@@ -1003,7 +1035,7 @@ make test
 make test-platform
 ```
 
-Expected: `dev-private.pem  dev-public.pem`; `git status` không in gì cho `storage/`; `make test` báo `2 passed`; `make test-platform` báo `Tests: 4 passed`.
+Expected: `dev-private.pem  dev-public.pem`; `git status` không in gì cho `storage/`; `make test` báo `2 passed`; `make test-platform` báo typecheck sạch và e2e `4 passed`.
 
 - [ ] **Step 5: Commit**
 
@@ -1088,6 +1120,7 @@ jobs:
           cache-dependency-path: services/platform/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
+      - run: pnpm typecheck
       - run: pnpm build:all
       - run: pnpm test
       - run: pnpm test:e2e
@@ -1148,7 +1181,7 @@ Dự án học theo lộ trình 10 tuần, xây theo kiến trúc **microservice
 | Thư mục | Nội dung |
 |---|---|
 | `services/booking/` | Laravel 13 / PHP 8.4 / Pest 5 — chuỗi, chi nhánh, phòng, slot, gói hội viên, đặt/huỷ |
-| `services/platform/` | NestJS monorepo — `apps/{identity,authz,notification,storage}` |
+| `services/platform/` | NestJS 12 monorepo (Vitest, oxlint, ESM) — `apps/{identity,authz,notification,storage}` |
 | `gateway/` | Cấu hình Traefik |
 | `infra/` | Script khởi tạo MySQL, PostgreSQL |
 
@@ -1160,7 +1193,7 @@ Yêu cầu: Docker. Không cần cài PHP trên máy.
 make up            # hạ tầng + booking → http://localhost:8180/up, gateway http://localhost:8100/booking/up
 make up-all        # thêm identity, authz, notification, storage → http://localhost:8100/<service>/health
 make test          # Pest của booking trên MySQL branchbook_testing
-make test-platform # unit + e2e test các service NestJS
+make test-platform # type-check + unit + e2e test các service NestJS
 make keys          # sinh cặp khoá RSA dev để ký/kiểm JWT (tuần 1)
 make fresh         # tạo lại database booking + seed
 make down          # dừng tất cả
@@ -1229,7 +1262,7 @@ SaaS đặt lịch đa tenant cho chuỗi trung tâm (Laravel + NestJS + Next.js
 
 ## Quy ước
 
-- Booking: Laravel 13, PHP 8.4, Pest 5. Platform: NestJS 12, pnpm, Jest; mỗi app một database + user PostgreSQL riêng, không truy vấn chéo.
+- Booking: Laravel 13, PHP 8.4, Pest 5. Platform: NestJS 12, pnpm, Vitest + oxlint (ESM, mặc định của NestJS 12), `pnpm typecheck` vì build rspack không kiểm kiểu; mỗi app một database + user PostgreSQL riêng, không truy vấn chéo.
 - Xác thực: JWT RS256 do identity cấp; mỗi service tự kiểm bằng public key. Tuần 1 dùng cặp khoá dev (`make keys`, không commit).
 - API prefix `/api/v1`; lỗi nghiệp vụ trả `{"error": {"code": "...", "message": "..."}}`; validation trả 422 mặc định của Laravel.
 - Kho file S3-compatible chọn ở tuần 7 (MinIO đã ngừng phát hành image).
@@ -1258,6 +1291,7 @@ sed -i '' 's/PostgreSQL     MinIO/PostgreSQL     kho S3/' "$SPEC"
 sed -i '' 's|<td>NestJS + MinIO</td>|<td>NestJS + kho S3-compatible (chọn ở tuần 7)</td>|' "$SPEC"
 sed -i '' 's/RabbitMQ, MinIO, Mailpit (dev)\./RabbitMQ, Mailpit (dev); kho S3-compatible chọn ở tuần 7 vì MinIO đã ngừng phát hành image (09\/2026)./' "$SPEC"
 sed -i '' 's/storage (MinIO, presigned URL)/storage (kho S3-compatible, presigned URL)/' "$SPEC"
+sed -i '' 's/CI (Pest, Jest)/CI (Pest, Vitest)/' "$SPEC"
 grep -n "MinIO" "$SPEC" docs/design.md
 ```
 
