@@ -1190,11 +1190,13 @@ Dự án học theo lộ trình 10 tuần, xây theo kiến trúc **microservice
 Yêu cầu: Docker. Không cần cài PHP trên máy.
 
 ```bash
+make               # liệt kê các lệnh (make help)
 make up            # hạ tầng + booking → http://localhost:8180/up, gateway http://localhost:8100/booking/up
 make up-all        # thêm identity, authz, notification, storage → http://localhost:8100/<service>/health
 make test          # Pest của booking trên MySQL branchbook_testing
 make test-platform # type-check + unit + e2e test các service NestJS
-make keys          # sinh cặp khoá RSA dev để ký/kiểm JWT (tuần 1)
+make keys          # sinh cặp khoá RSA dev để ký/kiểm JWT (tuần 1); đã có thì giữ nguyên
+make pg-init       # chạy lại init PostgreSQL khi thêm service/DB mới
 make fresh         # tạo lại database booking + seed
 make down          # dừng tất cả
 ```
@@ -1256,7 +1258,7 @@ SaaS đặt lịch đa tenant cho chuỗi trung tâm (Laravel + NestJS + Next.js
 ## Môi trường
 
 - Chạy mọi thứ qua Docker, **không cài PHP lên máy host** (máy đang có PHP 8.1, Laravel 13 cần ≥ 8.3). Node 24 + pnpm 11 có trên host cho `services/platform`.
-- `make up` · `make up-all` · `make test` · `make test-platform` · `make keys` · `make sh` · `make artisan c="..."` · `make composer c="..."` · `make fresh` · `make pint` · `make logs s=<service>`
+- `make` (liệt kê lệnh) · `make up` · `make up-all` · `make test` · `make test-platform` · `make keys` · `make pg-init` · `make sh` · `make artisan c="..."` · `make composer c="..."` · `make fresh` · `make pint` · `make logs s=<service>`
 - Booking trực tiếp http://localhost:8180 · Gateway http://localhost:8100/<service> (Traefik, dashboard 8101) · MySQL `127.0.0.1:13306` (branchbook/branchbook) · Redis `127.0.0.1:16379` · PostgreSQL `127.0.0.1:15432` · RabbitMQ `127.0.0.1:35672` (UI 35673) · Mailpit UI 18025
 - Test booking chạy trên MySQL `branchbook_testing` (không dùng SQLite) để test được lock, unique, generated column. Test NestJS dùng database `<service>_testing` trên PostgreSQL.
 
