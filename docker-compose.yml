@@ -51,6 +51,13 @@ services:
     image: axllent/mailpit:v1.31
     ports: ["127.0.0.1:11025:1025", "127.0.0.1:18025:8025"]   # SMTP, giao diện web
 
+  traefik:
+    image: traefik:v3
+    ports: ["127.0.0.1:8100:80", "127.0.0.1:8101:8080"]   # gateway, dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./gateway/traefik.yml:/etc/traefik/traefik.yml:ro
+
   booking:
     build: ./services/booking
     volumes: ["./services/booking:/app"]
@@ -60,6 +67,12 @@ services:
     depends_on:
       mysql: { condition: service_healthy }
       redis: { condition: service_started }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.booking.rule=PathPrefix(`/booking`)"
+      - "traefik.http.routers.booking.middlewares=booking-strip"
+      - "traefik.http.middlewares.booking-strip.stripprefix.prefixes=/booking"
+      - "traefik.http.services.booking.loadbalancer.server.port=8000"
 
 volumes:
   mysql-data:

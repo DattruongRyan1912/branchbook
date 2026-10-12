@@ -1,0 +1,15 @@
+# Cấu hình tĩnh Traefik (dev). Route khai báo bằng label trên từng service trong docker-compose.yml.
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  docker:
+    exposedByDefault: false   # chỉ service có label traefik.enable=true mới được định tuyến
+
+api:
+  dashboard: true
+  insecure: true              # dashboard ở cổng 8080 trong container — chỉ dùng cho dev
+
+log:
+  level: INFO
