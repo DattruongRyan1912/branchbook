@@ -83,7 +83,7 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 - Quyền thô (`tenant`, `role`, `branches`) nằm trong access token; identity lấy từ authz lúc cấp/làm mới token.
 - Quyền theo tài nguyên kiểm tại booking (chủ dữ liệu): `sub`↔`booking.user_id`, `branches`↔`branch_id`, `tenant`↔`tenant_id`.
 - Gỡ quyền: authz phát `role.changed` qua outbox → identity ghi mục chặn kiểu "tất cả" → token cũ bị 401 → web tự làm mới, nhận quyền mới trong vài giây, không phải đăng nhập lại.
-- Authz chết lúc làm mới token *(lời giải mẫu)*: identity dùng bản chụp quyền (`roles_snapshot`, `roles_fetched_at`) lưu cùng phiên, tối đa 60 phút tuổi; cấp token suy giảm sống 5 phút có cờ `roles_stale` (hành động nhạy cảm từ chối, đặt/xem lịch cho phép); có mục chặn mới hơn bản chụp thì từ chối.
+- Authz chết lúc làm mới token *(lời giải mẫu)*: identity dùng bản chụp quyền (`roles_snapshot`, `roles_fetched_at`) lưu cùng phiên, tối đa 60 phút tuổi; cấp token suy giảm sống 5 phút có cờ `roles_stale` (hành động nhạy cảm từ chối, đặt/xem lịch cho phép); khi nhận `role.changed`, identity **xoá bản chụp quyền** của mọi phiên của user đó, nên không còn bản chụp thì từ chối. (Đã đổi 2026-10-13 vì: bản cũ dựa vào mục chặn để nhận ra bản chụp đã cũ, nhưng mục chặn chỉ sống 15 phút + lệch đồng hồ trong khi bản chụp được dùng tới 60 phút → Bình bị gỡ quyền lúc 09:50, làm mới lúc 10:10 sẽ lấy lại quyền cũ.)
 - Gán quyền: authz gọi đồng bộ sang booking, kiểm chi nhánh tồn tại **và thuộc tenant của người gán**.
 
 ### Chống dò mật khẩu
@@ -128,5 +128,7 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 ## 11. Còn mở
 - Ngưỡng đăng nhập sai (mấy lần, trong bao lâu); refresh token có hạn tuyệt đối không; khoá đánh dấu kiểm mấy giây một lần.
 - Xác thực giữa các service (authz gọi API nội bộ của booking).
+- Lệnh chặn đã ghi vào bảng `revocations` nhưng `XADD` lỗi vì Redis đang chết (Redis không mất dữ liệu nên khoá `revocations:ready` vẫn còn): ai phát lại lệnh đó, và con số “lọt tối đa `min(thời gian sự cố, 15 phút)`” ở mục 8 còn đúng không?
+- Phát hiện refresh token bị dùng lại: ngoài thu hồi cả chuỗi refresh, có ghi thêm mục chặn `sid` để access token hiện tại của kẻ gian chết ngay không?
 - Saga cho luồng chủ chuỗi tự đăng ký (identity + booking + authz): **đã chốt** orchestration, bộ điều phối nằm trong identity (lý do của người viết: orchestration dễ giám sát hơn); còn mở: thứ tự các bước, nơi lưu trạng thái saga, trạng thái trung gian người dùng nhìn thấy.
 - Bảng đồng bộ/bất đồng bộ cho từng cặp service.
