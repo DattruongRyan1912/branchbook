@@ -25,10 +25,10 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 | authz | NestJS + PostgreSQL | Gán vai trò theo chuỗi/chi nhánh |
 | booking | Laravel 13 (Octane/Swoole) + MySQL + Redis | Chuỗi, chi nhánh, phòng, slot, đặt/huỷ chống trùng, outbox |
 | notification | NestJS + PostgreSQL | Nhận event, gửi email, nhắc lịch, WebSocket |
-| storage | NestJS + MinIO | Upload/download file qua presigned URL |
+| storage | NestJS + kho S3-compatible (chọn ở tuần 7) | Upload/download file qua presigned URL |
 | web | Next.js | Giao diện |
 
-- Hạ tầng dùng chung: 1 MySQL, 1 PostgreSQL (mỗi service có database + user riêng, không truy vấn chéo), 1 Redis (tách theo tiền tố khoá), RabbitMQ, MinIO.
+- Hạ tầng dùng chung: 1 MySQL, 1 PostgreSQL (mỗi service có database + user riêng, không truy vấn chéo), 1 Redis (tách theo tiền tố khoá), RabbitMQ, kho S3-compatible (MinIO đã ngừng phát hành image từ 09/2026 — chọn RustFS/Garage/SeaweedFS ở tuần 7).
 
 ### Event và thông báo
 - Event mang đủ dữ liệu mà service phát sở hữu, chỉ mang id với dữ liệu của service khác. Ví dụ `booking.cancelled`: `event_id`, `correlation_id`, `booking_id`, `user_id`, giờ bắt đầu, tên phòng, tên chi nhánh, lý do huỷ.

@@ -168,7 +168,7 @@
        web      identity     authz     booking      notification  storage
      Next.js     NestJS      NestJS    Laravel        NestJS       NestJS
                    │           │      (Octane)        │ WebSocket    │
-               PostgreSQL  PostgreSQL MySQL+Redis   PostgreSQL     MinIO
+               PostgreSQL  PostgreSQL MySQL+Redis   PostgreSQL     kho S3
                                           │ outbox
                                           └──▶ RabbitMQ ──▶ notification (inbox)
         identity ── Redis Stream "revocations" ──▶ mọi service (danh sách chặn trong RAM)</code></pre></div>
@@ -180,11 +180,11 @@
   <tr><td>authz</td><td>NestJS + PostgreSQL</td><td>Gán vai trò theo chuỗi/chi nhánh</td></tr>
   <tr><td>booking</td><td>Laravel 13 (Octane/Swoole) + MySQL + Redis</td><td>Chuỗi, chi nhánh, phòng, slot, gói hội viên, đặt/huỷ chống trùng, outbox</td></tr>
   <tr><td>notification</td><td>NestJS + PostgreSQL</td><td>Inbox, gửi email, nhắc lịch, WebSocket</td></tr>
-  <tr><td>storage</td><td>NestJS + MinIO</td><td>Upload/download qua presigned URL</td></tr>
+  <tr><td>storage</td><td>NestJS + kho S3-compatible (chọn ở tuần 7)</td><td>Upload/download qua presigned URL</td></tr>
   <tr><td>web</td><td>Next.js</td><td>Landing (Claude), màn app (người dùng)</td></tr>
 </table></div>
 
-<p><strong>Hạ tầng dùng chung:</strong> 1 MySQL, 1 PostgreSQL (mỗi service một database + user riêng, không truy vấn chéo), 1 Redis (tách theo tiền tố khoá), RabbitMQ, MinIO, Mailpit (dev). Tải ước tính ~2,5 GB RAM; VPS còn ~8,6 GB trống (7 CPU, 11 GB RAM).</p>
+<p><strong>Hạ tầng dùng chung:</strong> 1 MySQL, 1 PostgreSQL (mỗi service một database + user riêng, không truy vấn chéo), 1 Redis (tách theo tiền tố khoá), RabbitMQ, Mailpit (dev); kho S3-compatible chọn ở tuần 7 vì MinIO đã ngừng phát hành image (09/2026). Tải ước tính ~2,5 GB RAM; VPS còn ~8,6 GB trống (7 CPU, 11 GB RAM).</p>
 
 <h3>Cấu trúc repo đích</h3>
 <div class="pre"><button class="copy">Copy</button><pre><code>branchbook/
@@ -226,7 +226,7 @@
   <tr><td>4</td><td>Thu hồi token, chống dò mật khẩu</td><td>Bảng <code>revocations</code>, Redis Stream, danh sách trong RAM, Octane <code>tick</code>; giới hạn đăng nhập sai, cookie thiết bị, Have I Been Pwned</td><td>Chuyển booking sang Octane trong Docker</td><td>Thời gian từ “đăng xuất tất cả” đến lúc bị từ chối; test Redis chết / mất dữ liệu</td></tr>
   <tr><td>5</td><td>Broker + notification</td><td>RabbitMQ, outbox (booking), inbox (notification); email xác nhận, nhắc lịch, gộp email</td><td>—</td><td>Giết notification giữa chừng → 0 email mất</td></tr>
   <tr><td>6</td><td>Authz</td><td>Vai trò, quyền trong token (C), <code>role.changed</code> → mục chặn, bản chụp quyền khi authz chết; xác thực giữa service</td><td>—</td><td>Test 4 kịch bản authz chết</td></tr>
-  <tr><td>7</td><td>Saga, storage, đóng chi nhánh</td><td>Chủ chuỗi tự đăng ký (orchestration trong identity), storage (MinIO, presigned URL), <code>branch.closed</code></td><td>—</td><td><strong>Demo v1.0</strong>; tỷ lệ saga hoàn tác đúng khi tiêm lỗi</td></tr>
+  <tr><td>7</td><td>Saga, storage, đóng chi nhánh</td><td>Chủ chuỗi tự đăng ký (orchestration trong identity), storage (kho S3-compatible, presigned URL), <code>branch.closed</code></td><td>—</td><td><strong>Demo v1.0</strong>; tỷ lệ saga hoàn tác đúng khi tiêm lỗi</td></tr>
   <tr><td>8</td><td>Real-time, E2E, quan sát</td><td>WebSocket thay polling, Playwright E2E, <code>correlation_id</code> xuyên service</td><td>Stack log/tracing (OpenTelemetry + Grafana)</td><td>3 test E2E; trace một request qua nhiều service</td></tr>
   <tr><td>9</td><td>AWS</td><td>Dựng bản đo, load test k6, đo p95, ước tính chi phí, tắt tài nguyên</td><td>Hỗ trợ ghi chú hạ tầng</td><td>p95 thật, chi phí thật</td></tr>
   <tr><td>10</td><td>K8s, AI, portfolio</td><td>Chạy các service trên kind, liveness/readiness probe; tính năng “đặt bằng câu nói”</td><td>README, sơ đồ, cập nhật bullet CV từ số đo</td><td>Bullet CV có số</td></tr>
@@ -248,7 +248,7 @@
 <h3>Số liệu sẽ đo (chỉ vào CV khi đã đo thật)</h3>
 <div class="table-wrap"><table>
   <tr><th>Số liệu</th><th>Cách đo</th><th>Tuần</th></tr>
-  <tr><td>Số test, % coverage</td><td>CI (Pest, Jest)</td><td>Mọi tuần</td></tr>
+  <tr><td>Số test, % coverage</td><td>CI (Pest, Vitest)</td><td>Mọi tuần</td></tr>
   <tr><td>N request đồng thời đặt cùng 1 slot → đúng 1 thành công</td><td>Script bắn song song</td><td>1</td></tr>
   <tr><td>Thời gian từ “đăng xuất tất cả” đến lúc booking từ chối token</td><td>Test tích hợp</td><td>4</td></tr>
   <tr><td>Giết notification giữa chừng N lần → số email mất (mục tiêu 0) và số email trùng</td><td>Test tiêm lỗi</td><td>5</td></tr>
