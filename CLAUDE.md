@@ -7,7 +7,7 @@ SaaS đặt lịch đa tenant cho chuỗi trung tâm (Laravel + NestJS + Next.js
 - Lý thuyết: `/Users/ryantruong/Project/Orther/CV/content/learn/concepts/` (online: https://cv.truongquocdat.id.vn/learn/concepts/)
 - Đề bài tuần 1: `/Users/ryantruong/Project/Orther/CV/content/learn/week-1/` (online: https://cv.truongquocdat.id.vn/learn/week-1/)
 
-## Chế độ học (bắt buộc với mọi phiên Claude)
+## Chế độ học (bắt buộc với mọi phiên agent: Claude, Codex, Gemini…)
 
 1. Người dùng **tự viết** phần cốt lõi theo đề bài: design doc, ADR, migration, model, factory/seeder, service, controller, middleware/guard xác thực, test nghiệp vụ, màn app Next.js. Claude **không viết lời giải** khi người dùng chưa yêu cầu rõ “cho xem lời giải mẫu”.
 2. Khi người dùng nhờ “review Bx”: đọc code/diff, chạy `make test` (booking) và/hoặc `make test-platform` theo phạm vi diff, nhận xét theo thứ tự: đúng yêu cầu của đề → bug → bảo mật → dữ liệu/concurrency → test còn thiếu → đặt tên/cấu trúc. Chỉ ra vấn đề + vì sao + hướng sửa; **không sửa thay**.
