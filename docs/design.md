@@ -130,5 +130,9 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 - Xác thực giữa các service (authz gọi API nội bộ của booking).
 - Lệnh chặn đã ghi vào bảng `revocations` nhưng `XADD` lỗi vì Redis đang chết (Redis không mất dữ liệu nên khoá `revocations:ready` vẫn còn): ai phát lại lệnh đó, và con số “lọt tối đa `min(thời gian sự cố, 15 phút)`” ở mục 8 còn đúng không?
 - Phát hiện refresh token bị dùng lại: ngoài thu hồi cả chuỗi refresh, có ghi thêm mục chặn `sid` để access token hiện tại của kẻ gian chết ngay không?
+- Redis mất **một phần** dữ liệu (chết đột ngột rồi quay về bản chụp RDB cũ, hoặc failover sang replica chưa đồng bộ kịp): khoá `revocations:ready` vẫn còn nhưng các mục `XADD` mới nhất đã mất, refresh token đã đăng xuất/đã dùng có thể sống lại — ai phát hiện, xử lý thế nào?
+- Hai tab của An cùng nhận 401 và cùng gửi refresh token R1 gần như cùng lúc: identity phân biệt với bị đánh cắp thế nào? Bước "kiểm chưa dùng → đánh dấu đã dùng" có nguyên tử không?
+- “Đăng xuất tất cả” / “đăng xuất thiết bị này” khi nghi bị lộ: ngoài mục chặn access token, còn phải làm gì với refresh token (kẻ gian làm mới là có token `iat` mới)?
+- Khởi động nguội: bản booking khởi động đúng lúc Redis chết thì danh sách chặn trong RAM có gì; khởi động lúc identity chết thì lấy public key (JWKS) ở đâu?
 - Saga cho luồng chủ chuỗi tự đăng ký (identity + booking + authz): **đã chốt** orchestration, bộ điều phối nằm trong identity (lý do của người viết: orchestration dễ giám sát hơn); còn mở: thứ tự các bước, nơi lưu trạng thái saga, trạng thái trung gian người dùng nhìn thấy.
 - Bảng đồng bộ/bất đồng bộ cho từng cặp service.
