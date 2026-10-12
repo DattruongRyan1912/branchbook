@@ -126,7 +126,7 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 | Xoá dữ liệu nghiệp vụ | Đổi trạng thái | Xoá cứng: mất lịch sử booking, báo cáo cũ sai |
 
 ## 11. Còn mở
-- Ngưỡng đăng nhập sai (mấy lần, trong bao lâu); refresh token có hạn tuyệt đối không; khoá đánh dấu kiểm mấy giây một lần.
+- Ngưỡng đăng nhập sai (mấy lần, trong bao lâu, cửa sổ cố định hay trượt); Redis giữ bộ đếm chết thì đóng, mở hay đếm tạm trong RAM từng bản; refresh token có hạn tuyệt đối không; khoá đánh dấu kiểm mấy giây một lần.
 - Xác thực giữa các service (authz gọi API nội bộ của booking).
 - Lệnh chặn đã ghi vào bảng `revocations` nhưng `XADD` lỗi vì Redis đang chết (Redis không mất dữ liệu nên khoá `revocations:ready` vẫn còn): ai phát lại lệnh đó, và con số “lọt tối đa `min(thời gian sự cố, 15 phút)`” ở mục 8 còn đúng không?
 - Phát hiện refresh token bị dùng lại: ngoài thu hồi cả chuỗi refresh, có ghi thêm mục chặn `sid` để access token hiện tại của kẻ gian chết ngay không?
