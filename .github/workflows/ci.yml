@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  booking:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: branchbook_testing
+          MYSQL_USER: branchbook
+          MYSQL_PASSWORD: branchbook
+          MYSQL_ROOT_PASSWORD: root
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-retries=20
+    defaults:
+      run:
+        working-directory: services/booking
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USERNAME: branchbook
+      DB_PASSWORD: branchbook
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql
+          coverage: none
+      - name: Cài dependency
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Chuẩn bị .env
+        run: cp .env.example .env && php artisan key:generate
+      - name: Pest (MySQL thật)
+        run: ./vendor/bin/pest
+
+  platform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/platform
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: services/platform/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: services/platform/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build:all
+      - run: pnpm test
+      - run: pnpm test:e2e
