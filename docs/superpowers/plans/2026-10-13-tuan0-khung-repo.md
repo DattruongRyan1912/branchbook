@@ -170,7 +170,7 @@ Thêm sau khối `redis:` (trước `booking:`):
     environment:
       RABBITMQ_DEFAULT_USER: branchbook   # guest chỉ đăng nhập được từ localhost trong container
       RABBITMQ_DEFAULT_PASS: branchbook   # chỉ dùng cho môi trường dev local
-    ports: ["25672:5672", "25673:15672"]
+    ports: ["127.0.0.1:35672:5672", "127.0.0.1:35673:15672"]
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
@@ -228,7 +228,7 @@ Expected: `1`.
 
 - [ ] **Step 6: Kiểm tra RabbitMQ và Mailpit**
 
-Run: `curl -s -u branchbook:branchbook http://localhost:25673/api/overview | python3 -c "import sys,json; print(json.load(sys.stdin)['rabbitmq_version'])"`
+Run: `curl -s -u branchbook:branchbook http://localhost:35673/api/overview | python3 -c "import sys,json; print(json.load(sys.stdin)['rabbitmq_version'])"`
 Expected: một phiên bản bắt đầu bằng `4.`
 
 Run: `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:18025/`
@@ -240,6 +240,10 @@ Expected: `200`
 git add infra/postgres/init.sql docker-compose.yml
 git commit -m "chore(infra): thêm PostgreSQL (DB riêng mỗi service), RabbitMQ, Mailpit"
 ```
+
+---
+
+> **Đã chỉnh sau review Task 2 (2026-10-13):** RabbitMQ có `hostname: rabbitmq`, image `rabbitmq:4.3-management-alpine`, healthcheck `check_port_connectivity`, cổng host `35672/35673`; PostgreSQL healthcheck `pg_isready -h 127.0.0.1`; `init.sql` viết lại dạng idempotent (`\gexec`); mọi cổng host bind `127.0.0.1`; Mailpit pin theo minor. Xem commit sửa sau `bd4434d`.
 
 ---
 
@@ -276,7 +280,7 @@ Thêm sau khối `mailpit:`:
 ```yaml
   traefik:
     image: traefik:v3
-    ports: ["8100:80", "8101:8080"]   # gateway, dashboard
+    ports: ["127.0.0.1:8100:80", "127.0.0.1:8101:8080"]   # gateway, dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./gateway/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -936,7 +940,7 @@ printf '/storage/keys\n' >> services/booking/.gitignore
 - [ ] **Step 3: Ghi đè `Makefile`**
 
 ```make
-.PHONY: up up-all down ps logs sh artisan composer test test-platform fresh pint keys
+.PHONY: up up-all down ps logs sh artisan composer test test-platform fresh pint keys pg-init
 
 up:        ## Hạ tầng + booking: MySQL, Redis, PostgreSQL, RabbitMQ, Mailpit, Traefik (gateway http://localhost:8100)
 	docker compose up -d --build
@@ -970,6 +974,9 @@ test-platform: ## Unit + e2e test các service NestJS
 
 fresh:     ## Tạo lại database booking + seed
 	docker compose exec booking php artisan migrate:fresh --seed
+
+pg-init:   ## Chạy lại infra/postgres/init.sql (idempotent) — khi thêm service/DB mới vào volume đã có dữ liệu
+	docker compose exec -T postgres psql -U postgres -v ON_ERROR_STOP=1 < infra/postgres/init.sql
 
 pint:      ## Format code booking theo chuẩn Laravel
 	docker compose exec booking ./vendor/bin/pint
@@ -1163,7 +1170,7 @@ make down          # dừng tất cả
 | MySQL | `127.0.0.1:13306` | `branchbook` / `branchbook` |
 | Redis | `127.0.0.1:16379` | |
 | PostgreSQL | `127.0.0.1:15432` | mỗi service một user + DB: `identity`, `authz`, `notification` (mật khẩu = tên) |
-| RabbitMQ | `127.0.0.1:25672`, giao diện `http://localhost:25673` | `branchbook` / `branchbook` |
+| RabbitMQ | `127.0.0.1:35672`, giao diện `http://localhost:35673` | `branchbook` / `branchbook` |
 | Mailpit | SMTP `127.0.0.1:11025`, giao diện `http://localhost:18025` | |
 
 ## Tiến độ
@@ -1213,7 +1220,7 @@ SaaS đặt lịch đa tenant cho chuỗi trung tâm (Laravel + NestJS + Next.js
 
 - Chạy mọi thứ qua Docker, **không cài PHP lên máy host** (máy đang có PHP 8.1, Laravel 13 cần ≥ 8.3). Node 24 + pnpm 11 có trên host cho `services/platform`.
 - `make up` · `make up-all` · `make test` · `make test-platform` · `make keys` · `make sh` · `make artisan c="..."` · `make composer c="..."` · `make fresh` · `make pint` · `make logs s=<service>`
-- Booking trực tiếp http://localhost:8180 · Gateway http://localhost:8100/<service> (Traefik, dashboard 8101) · MySQL `127.0.0.1:13306` (branchbook/branchbook) · Redis `127.0.0.1:16379` · PostgreSQL `127.0.0.1:15432` · RabbitMQ `127.0.0.1:25672` (UI 25673) · Mailpit UI 18025
+- Booking trực tiếp http://localhost:8180 · Gateway http://localhost:8100/<service> (Traefik, dashboard 8101) · MySQL `127.0.0.1:13306` (branchbook/branchbook) · Redis `127.0.0.1:16379` · PostgreSQL `127.0.0.1:15432` · RabbitMQ `127.0.0.1:35672` (UI 35673) · Mailpit UI 18025
 - Test booking chạy trên MySQL `branchbook_testing` (không dùng SQLite) để test được lock, unique, generated column. Test NestJS dùng database `<service>_testing` trên PostgreSQL.
 
 ## Quy ước
