@@ -7,12 +7,10 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "build": "nest build",
-    "build:all": "nest build identity && nest build authz && nest build notification && nest build storage",
+    "build:all": "nest build --all",
     "format": "prettier --write --no-error-on-unmatched-pattern \"apps/**/*.ts\" \"libs/**/*.ts\"",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
     "lint": "oxlint --type-aware apps/ libs/",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage --passWithNoTests",
@@ -27,7 +25,6 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.0",
-    "@nestjs/mau": "^0.2.6",
     "@nestjs/schematics": "^12.0.0",
     "@nestjs/testing": "^12.0.1",
     "@rspack/core": "^2.2.8",
@@ -42,7 +39,6 @@
     "supertest": "^7.0.0",
     "tsconfig-paths-webpack-plugin": "^4.2.0",
     "typescript": "^6.0.2",
-    "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^4.1.2",
     "webpack-node-externals": "^3.0.0"
   },

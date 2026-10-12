@@ -1,5 +1,17 @@
 # Môi trường dev BranchBook. Cổng host khác mặc định để không đụng MySQL/Redis cài sẵn trên máy.
 name: branchbook
+
+# Cấu hình chung cho các service NestJS: cùng một image dev, bật bằng profile "platform".
+# Chỉ platform-deps khai báo build (nhiều service cùng build một tag chạy song song sẽ lỗi
+# "image already exists"); 4 app dùng lại image đó.
+x-platform: &platform
+  image: branchbook-platform-dev
+  pull_policy: never   # image chỉ có ở máy (build từ platform-deps), không kéo từ Docker Hub
+  profiles: ["platform"]
+  volumes:
+    - ./services/platform:/app
+    - platform-node-modules:/app/node_modules
+
 services:
   mysql:
     image: mysql:8.4
@@ -76,21 +88,13 @@ services:
       - "traefik.http.services.booking.loadbalancer.server.port=8000"
 
   platform-deps:   # cài node_modules một lần vào volume dùng chung cho 4 app NestJS
+    <<: *platform
     build: ./services/platform
-    profiles: ["platform"]
-    volumes:
-      - ./services/platform:/app
-      - platform-node-modules:/app/node_modules
-    # store đặt trong volume node_modules: không ghi .pnpm-store ra thư mục host (bind mount)
-    command: ["pnpm", "install", "--frozen-lockfile", "--store-dir", "/app/node_modules/.pnpm-store"]
+    command: ["pnpm", "install", "--frozen-lockfile"]
 
   identity:
-    build: ./services/platform
-    profiles: ["platform"]
+    <<: *platform
     environment: { APP: identity, PORT: "3000" }
-    volumes:
-      - ./services/platform:/app
-      - platform-node-modules:/app/node_modules
     depends_on:
       platform-deps: { condition: service_completed_successfully }
     labels:
@@ -101,12 +105,8 @@ services:
       - "traefik.http.services.identity.loadbalancer.server.port=3000"
 
   authz:
-    build: ./services/platform
-    profiles: ["platform"]
+    <<: *platform
     environment: { APP: authz, PORT: "3000" }
-    volumes:
-      - ./services/platform:/app
-      - platform-node-modules:/app/node_modules
     depends_on:
       platform-deps: { condition: service_completed_successfully }
     labels:
@@ -117,12 +117,8 @@ services:
       - "traefik.http.services.authz.loadbalancer.server.port=3000"
 
   notification:
-    build: ./services/platform
-    profiles: ["platform"]
+    <<: *platform
     environment: { APP: notification, PORT: "3000" }
-    volumes:
-      - ./services/platform:/app
-      - platform-node-modules:/app/node_modules
     depends_on:
       platform-deps: { condition: service_completed_successfully }
     labels:
@@ -133,12 +129,8 @@ services:
       - "traefik.http.services.notification.loadbalancer.server.port=3000"
 
   storage:
-    build: ./services/platform
-    profiles: ["platform"]
+    <<: *platform
     environment: { APP: storage, PORT: "3000" }
-    volumes:
-      - ./services/platform:/app
-      - platform-node-modules:/app/node_modules
     depends_on:
       platform-deps: { condition: service_completed_successfully }
     labels:

@@ -15,7 +15,7 @@ describe('authz /health', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('GET /health trả 200 kèm tên service', () => {

@@ -23,19 +23,8 @@
       "node"
     ]
   },
-  "files": [],
-  "references": [
-    {
-      "path": "./apps/identity/tsconfig.app.json"
-    },
-    {
-      "path": "./apps/authz/tsconfig.app.json"
-    },
-    {
-      "path": "./apps/notification/tsconfig.app.json"
-    },
-    {
-      "path": "./apps/storage/tsconfig.app.json"
-    }
+  "include": [
+    "apps/**/*.ts",
+    "libs/**/*.ts"
   ]
 }

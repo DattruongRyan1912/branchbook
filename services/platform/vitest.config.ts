@@ -1,10 +1,8 @@
 import { defineConfig } from 'vitest/config';
-import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
-  // Resolves the path aliases declared in tsconfig.json, including the ones
-  // added by `nest g library`.
-  plugins: [tsconfigPaths()],
+  // Vite tự đọc alias trong "paths" của tsconfig.json (chưa dùng; sẵn cho libs/ sau này).
+  resolve: { tsconfigPaths: true },
   test: {
     globals: true,
     root: './',
