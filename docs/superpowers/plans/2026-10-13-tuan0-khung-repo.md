@@ -279,7 +279,7 @@ Thêm sau khối `mailpit:`:
 
 ```yaml
   traefik:
-    image: traefik:v3
+    image: traefik:v3.7
     ports: ["127.0.0.1:8100:80", "127.0.0.1:8101:8080"]   # gateway, dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -293,7 +293,7 @@ Thêm vào khối `booking:` (cùng cấp với `depends_on`):
 ```yaml
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.booking.rule=PathPrefix(`/booking`)"
+      - "traefik.http.routers.booking.rule=Path(`/booking`) || PathPrefix(`/booking/`)"
       - "traefik.http.routers.booking.middlewares=booking-strip"
       - "traefik.http.middlewares.booking-strip.stripprefix.prefixes=/booking"
       - "traefik.http.services.booking.loadbalancer.server.port=8000"
@@ -316,6 +316,10 @@ Expected: `200`; danh sách router có `booking@docker`.
 git add gateway/traefik.yml docker-compose.yml
 git commit -m "chore(infra): thêm gateway Traefik, định tuyến /booking"
 ```
+
+---
+
+> **Đã chỉnh sau review Task 3 (2026-10-13):** image `traefik:v3.7`; rule dạng ``Path(`/x`) || PathPrefix(`/x/`)`` (PathPrefix trơn bắt cả `/xyz`); `traefik.yml` thêm `global` tắt kiểm tra phiên bản, `aliasHeadersStrategy: delete`, chặn ký tự mã hoá trong path, `constraints` theo project compose, `accessLog`. Xem commit sửa sau `4340b59`.
 
 ---
 
@@ -817,7 +821,7 @@ Thêm sau khối `booking:`:
       platform-deps: { condition: service_completed_successfully }
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.identity.rule=PathPrefix(`/identity`)"
+      - "traefik.http.routers.identity.rule=Path(`/identity`) || PathPrefix(`/identity/`)"
       - "traefik.http.routers.identity.middlewares=identity-strip"
       - "traefik.http.middlewares.identity-strip.stripprefix.prefixes=/identity"
       - "traefik.http.services.identity.loadbalancer.server.port=3000"
@@ -833,7 +837,7 @@ Thêm sau khối `booking:`:
       platform-deps: { condition: service_completed_successfully }
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.authz.rule=PathPrefix(`/authz`)"
+      - "traefik.http.routers.authz.rule=Path(`/authz`) || PathPrefix(`/authz/`)"
       - "traefik.http.routers.authz.middlewares=authz-strip"
       - "traefik.http.middlewares.authz-strip.stripprefix.prefixes=/authz"
       - "traefik.http.services.authz.loadbalancer.server.port=3000"
@@ -849,7 +853,7 @@ Thêm sau khối `booking:`:
       platform-deps: { condition: service_completed_successfully }
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.notification.rule=PathPrefix(`/notification`)"
+      - "traefik.http.routers.notification.rule=Path(`/notification`) || PathPrefix(`/notification/`)"
       - "traefik.http.routers.notification.middlewares=notification-strip"
       - "traefik.http.middlewares.notification-strip.stripprefix.prefixes=/notification"
       - "traefik.http.services.notification.loadbalancer.server.port=3000"
@@ -865,7 +869,7 @@ Thêm sau khối `booking:`:
       platform-deps: { condition: service_completed_successfully }
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.storage.rule=PathPrefix(`/storage`)"
+      - "traefik.http.routers.storage.rule=Path(`/storage`) || PathPrefix(`/storage/`)"
       - "traefik.http.routers.storage.middlewares=storage-strip"
       - "traefik.http.middlewares.storage-strip.stripprefix.prefixes=/storage"
       - "traefik.http.services.storage.loadbalancer.server.port=3000"
