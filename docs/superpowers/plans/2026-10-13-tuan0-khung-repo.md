@@ -1145,6 +1145,10 @@ Expected: cả 2 job `booking` và `platform` thành công. Nếu fail: `gh run 
 
 ---
 
+> **Đã chỉnh sau review Task 6 (2026-10-13):** `permissions: contents: read`; concurrency chỉ huỷ run cũ của PR (không huỷ trên `main`); `runs-on: ubuntu-24.04`; `timeout-minutes: 10`; job booking thêm bước `php artisan migrate --force` (env `DB_DATABASE: branchbook_testing` ở cấp step) để CI thật sự chạm MySQL. Tuần 2 khi platform cần Postgres: service `postgres:17-alpine` + chạy `infra/postgres/init.sql` sau checkout bằng `docker exec -i ${{ job.services.postgres.id }} psql …`.
+
+---
+
 ### Task 7: Cập nhật README, CLAUDE.md, ghi chú storage trong spec và design
 
 **Files:**
