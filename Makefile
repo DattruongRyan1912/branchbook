@@ -1,7 +1,17 @@
-.PHONY: help setup up up-all down ps logs sh artisan composer test test-platform fresh pint keys pg-init
+# Không gắn attestation (provenance) của BuildKit vào image: mỗi lần build lại không đổi image ID,
+# nên `make up` không tạo lại container booking/NestJS (và không chạy lại pnpm install) khi code build không đổi.
+export BUILDX_NO_DEFAULT_ATTESTATIONS := 1
+
+.PHONY: help guard setup up up-all down ps logs sh artisan composer test test-platform fresh pint keys pg-init
 
 help:      ## Liệt kê các lệnh
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
+
+# Tên project compose cố định (branchbook) nên mọi checkout dùng chung container booking-1; các lệnh
+# `exec booking` phải chạy đúng code của checkout này. -ef so cùng file thật, không bị lệch vì symlink.
+guard:     ## Dừng nếu container booking đang chạy code của checkout khác
+	@src=$$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app"}}{{.Source}}{{end}}{{end}}' branchbook-booking-1 2>/dev/null); \
+	[ -z "$$src" ] || [ "$$src" -ef services/booking ] || { echo "booking đang chạy code ở $$src — chạy 'make up' ở checkout này trước" >&2; exit 1; }
 
 setup:     ## Lần đầu sau khi clone: tạo .env, cài vendor, sinh APP_KEY cho booking (chạy lại an toàn)
 	docker compose build booking
@@ -24,31 +34,31 @@ ps:        ## Trạng thái các container
 logs:      ## make logs s=identity (mặc định booking)
 	docker compose --profile platform logs -f --tail=100 $(or $(s),booking)
 
-sh:        ## Mở shell trong container booking
+sh: guard  ## Mở shell trong container booking
 	docker compose exec booking sh
 
-artisan:   ## make artisan c="route:list"
+artisan: guard ## make artisan c="route:list"
 	docker compose exec booking php artisan $(c)
 
-composer:  ## make composer c="require vendor/package"
+composer: guard ## make composer c="require vendor/package"
 	docker compose exec booking composer $(c)
 
-test:      ## Test booking (Pest). make test f="--filter=Booking"
+test: guard ## Test booking (Pest). make test f="--filter=Booking"
 	docker compose exec booking ./vendor/bin/pest $(f)
 
 test-platform: ## Type-check + lint + unit + e2e test các service NestJS (-l: không để Traefik coi container test là một bản identity)
 	docker compose --profile platform run --rm -l traefik.enable=false identity sh -c "pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e"
 
-fresh:     ## Tạo lại database booking + seed
+fresh: guard ## Tạo lại database booking + seed
 	docker compose exec booking php artisan migrate:fresh --seed
 
 pg-init:   ## Chạy lại infra/postgres/init.sql (idempotent) — khi thêm service/DB mới vào volume đã có dữ liệu
 	docker compose exec -T postgres psql -U postgres -v ON_ERROR_STOP=1 < infra/postgres/init.sql
 
-pint:      ## Format code booking theo chuẩn Laravel
+pint: guard ## Format code booking theo chuẩn Laravel
 	docker compose exec booking ./vendor/bin/pint
 
-keys:      ## Sinh cặp khoá RSA dev (storage/keys của booking) để ký/kiểm JWT tuần 1 — không commit; đã có thì giữ nguyên (muốn sinh lại: xoá services/booking/storage/keys)
+keys: guard ## Sinh cặp khoá RSA dev (storage/keys của booking) để ký/kiểm JWT tuần 1 — không commit; đã có thì giữ nguyên (muốn sinh lại: xoá services/booking/storage/keys)
 	docker compose exec booking sh -c "mkdir -p storage/keys \
 	  && { [ -f storage/keys/dev-private.pem ] || openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out storage/keys/dev-private.pem; } \
 	  && openssl pkey -in storage/keys/dev-private.pem -pubout -out storage/keys/dev-public.pem"
