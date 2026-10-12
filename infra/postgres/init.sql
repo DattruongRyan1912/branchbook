@@ -1,17 +1,18 @@
 -- Mỗi service NestJS một user + database riêng (dev). Thu hồi CONNECT của PUBLIC
 -- để service này không kết nối được vào database của service khác.
-CREATE USER identity WITH PASSWORD 'identity';
-CREATE DATABASE identity OWNER identity;
-CREATE DATABASE identity_testing OWNER identity;
+-- Idempotent: chạy lại an toàn (make pg-init) khi thêm service vào volume đã có dữ liệu.
+SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', s, s)
+FROM unnest(ARRAY['identity', 'authz', 'notification']) AS s
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = s)
+\gexec
 
-CREATE USER authz WITH PASSWORD 'authz';
-CREATE DATABASE authz OWNER authz;
-CREATE DATABASE authz_testing OWNER authz;
+SELECT format('CREATE DATABASE %I OWNER %I', d, s)
+FROM unnest(ARRAY['identity', 'authz', 'notification']) AS s,
+     unnest(ARRAY[s, s || '_testing']) AS d
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = d)
+\gexec
 
-CREATE USER notification WITH PASSWORD 'notification';
-CREATE DATABASE notification OWNER notification;
-CREATE DATABASE notification_testing OWNER notification;
-
-REVOKE CONNECT ON DATABASE identity, identity_testing FROM PUBLIC;
-REVOKE CONNECT ON DATABASE authz, authz_testing FROM PUBLIC;
-REVOKE CONNECT ON DATABASE notification, notification_testing FROM PUBLIC;
+SELECT format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', d)
+FROM unnest(ARRAY['identity', 'authz', 'notification']) AS s,
+     unnest(ARRAY[s, s || '_testing']) AS d
+\gexec

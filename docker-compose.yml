@@ -7,7 +7,7 @@ services:
       MYSQL_USER: branchbook
       MYSQL_PASSWORD: branchbook        # chỉ dùng cho môi trường dev local
       MYSQL_ROOT_PASSWORD: root          # chỉ dùng cho môi trường dev local
-    ports: ["13306:3306"]
+    ports: ["127.0.0.1:13306:3306"]
     volumes:
       - mysql-data:/var/lib/mysql
       - ./infra/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -18,42 +18,43 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports: ["16379:6379"]
+    ports: ["127.0.0.1:16379:6379"]
 
   postgres:
     image: postgres:17-alpine
     environment:
       POSTGRES_PASSWORD: postgres        # chỉ dùng cho môi trường dev local
-    ports: ["15432:5432"]
+    ports: ["127.0.0.1:15432:5432"]
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
       interval: 5s
       retries: 20
 
   rabbitmq:
-    image: rabbitmq:4-management-alpine
+    image: rabbitmq:4.3-management-alpine
+    hostname: rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: branchbook   # guest chỉ đăng nhập được từ localhost trong container
       RABBITMQ_DEFAULT_PASS: branchbook   # chỉ dùng cho môi trường dev local
-    ports: ["25672:5672", "25673:15672"]
+    ports: ["127.0.0.1:35672:5672", "127.0.0.1:35673:15672"]
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 10s
       retries: 20
 
   mailpit:
-    image: axllent/mailpit:latest
-    ports: ["11025:1025", "18025:8025"]   # SMTP, giao diện web
+    image: axllent/mailpit:v1.31
+    ports: ["127.0.0.1:11025:1025", "127.0.0.1:18025:8025"]   # SMTP, giao diện web
 
   booking:
     build: ./services/booking
     volumes: ["./services/booking:/app"]
-    ports: ["8180:8000"]
+    ports: ["127.0.0.1:8180:8000"]
     environment:
       PHP_CLI_SERVER_WORKERS: 8   # artisan serve xử lý song song (cần cho bài thử đồng thời B6)
     depends_on:
