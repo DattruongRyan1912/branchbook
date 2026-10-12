@@ -1,4 +1,4 @@
-# Image dev cho core-api (Laravel 13 cần PHP >= 8.3)
+# Image dev cho booking (Laravel 13 cần PHP >= 8.3)
 FROM php:8.4-cli-alpine
 
 RUN docker-php-ext-install pdo_mysql pcntl
