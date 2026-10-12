@@ -32,7 +32,7 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 
 ### Event và thông báo
 - Event mang đủ dữ liệu mà service phát sở hữu, chỉ mang id với dữ liệu của service khác. Ví dụ `booking.cancelled`: `event_id`, `correlation_id`, `booking_id`, `user_id`, giờ bắt đầu, tên phòng, tên chi nhánh, lý do huỷ.
-- Notification giữ bản sao `user_id → email, tên, ngôn ngữ` (chỉ trường cần dùng), nạp toàn bộ một lần rồi nghe `user.updated`; nhận `user.anonymized` thì ẩn danh bản sao. Lúc gửi email không phụ thuộc identity.
+- Notification giữ bản sao `user_id → email, tên, ngôn ngữ` (chỉ trường cần dùng), khai báo + bind queue trước, nạp toàn bộ một lần, rồi áp các `user.updated` đã xếp hàng trong lúc nạp (đã đổi 2026-10-13 vì: nạp trước rồi mới tạo queue thì event phát ra ở khoảng giữa không vào queue nào và mất); nhận `user.anonymized` thì ẩn danh bản sao. Lúc gửi email không phụ thuộc identity.
 - Gộp email theo đợt: mọi event sinh ra từ một thao tác mang chung `correlation_id`; notification gom theo `(user_id, correlation_id)` trong 30 giây rồi gửi một email. Event đến muộn thì thành email thứ hai — thừa chứ không thiếu.
 - Inbox: event được ghi vào bảng `pending_notifications` (`unique(event_id)` chống nhận trùng) rồi mới ack với RabbitMQ.
 - Gửi: gửi email trước, đánh dấu `sent_at` sau (at-least-once — trùng còn hơn mất). Nhiều bản notification nhặt việc bằng `FOR UPDATE SKIP LOCKED`.
