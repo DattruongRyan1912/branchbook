@@ -16,7 +16,7 @@
 
 ## 3. Kiến trúc service
 
-Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện tách service thật, chấp nhận bản demo đầu tiên lùi về tuần 4.
+Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện tách service thật, chấp nhận bản demo đầu tiên lùi về sau (đã đổi vì lịch 10 tuần chốt 2026-10-13 xếp demo v0.1 ở cuối tuần 3: tuần 1–3 chỉ cần booking + identity + web mỏng).
 
 | Service | Stack | Việc chính |
 |---|---|---|
@@ -128,5 +128,5 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 ## 11. Còn mở
 - Ngưỡng đăng nhập sai (mấy lần, trong bao lâu); refresh token có hạn tuyệt đối không; khoá đánh dấu kiểm mấy giây một lần.
 - Xác thực giữa các service (authz gọi API nội bộ của booking).
-- Saga cho luồng chủ chuỗi tự đăng ký (identity + booking + authz).
+- Saga cho luồng chủ chuỗi tự đăng ký (identity + booking + authz): **đã chốt** orchestration, bộ điều phối nằm trong identity (mật khẩu chỉ chạm một service); còn mở: thứ tự các bước, nơi lưu trạng thái saga, trạng thái trung gian người dùng nhìn thấy.
 - Bảng đồng bộ/bất đồng bộ cho từng cặp service.
