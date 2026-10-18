@@ -37,6 +37,14 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 - Inbox: event được ghi vào bảng `pending_notifications` (`unique(event_id)` chống nhận trùng) rồi mới ack với RabbitMQ.
 - Gửi: gửi email trước, đánh dấu `sent_at` sau (at-least-once — trùng còn hơn mất). Nhiều bản notification nhặt việc bằng `FOR UPDATE SKIP LOCKED`.
 
+### Saga: chủ chuỗi tự đăng ký
+- Orchestration, bộ điều phối nằm trong identity (dễ giám sát hơn).
+- Thứ tự: tạo tài khoản (identity) → tạo chuỗi + chi nhánh đầu tiên (booking) → gán chủ chuỗi (authz) → gửi email chào mừng (notification).
+  - Gán chủ cần `user_id` và `tenant_id` nên đứng sau hai bước tạo.
+  - Tạo tài khoản và tạo chuỗi không phụ thuộc nhau, đổi chỗ được; bước dễ hỏng đứng trước. Ví dụ 100 người đăng ký, 30 người trùng email, 2 người trùng slug: tạo tài khoản trước thì chạy bước bù 2 lần, tạo chuỗi trước thì 30 lần.
+  - Email đứng cuối: email chỉ gửi được hoặc lỗi, không thu hồi được; gửi trước mà bước sau hỏng thì chủ chuỗi nhận email chúc mừng nhưng không thật sự được giao chuỗi.
+- Bước email lỗi (máy chủ mail chết): không chạy bù các bước trước; lưu vào hàng đợi, máy chủ khôi phục thì gửi. Email chỉ để thông báo, không ảnh hưởng việc chủ chuỗi tiếp nhận chuỗi.
+
 ## 4. Mô hình dữ liệu
 
 ### Sở hữu dữ liệu
@@ -134,5 +142,5 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 - Hai tab của An cùng nhận 401 và cùng gửi refresh token R1 gần như cùng lúc: identity phân biệt với bị đánh cắp thế nào? Bước "kiểm chưa dùng → đánh dấu đã dùng" có nguyên tử không?
 - “Đăng xuất tất cả” / “đăng xuất thiết bị này” khi nghi bị lộ: ngoài mục chặn access token, còn phải làm gì với refresh token (kẻ gian làm mới là có token `iat` mới)?
 - Khởi động nguội: bản booking khởi động đúng lúc Redis chết thì danh sách chặn trong RAM có gì; khởi động lúc identity chết thì lấy public key (JWKS) ở đâu?
-- Saga cho luồng chủ chuỗi tự đăng ký (identity + booking + authz): **đã chốt** orchestration, bộ điều phối nằm trong identity (lý do của người viết: orchestration dễ giám sát hơn); còn mở: thứ tự các bước, nơi lưu trạng thái saga, trạng thái trung gian người dùng nhìn thấy.
+- Saga cho luồng chủ chuỗi tự đăng ký: đã chốt orchestration và thứ tự các bước (mục 3); còn mở: nơi lưu trạng thái saga (identity chết giữa chừng thì biết dừng ở bước nào), trạng thái trung gian người dùng nhìn thấy và cách booking xử lý chuỗi chưa xong, gọi lại một bước khi timeout mà không tạo trùng.
 - Bảng đồng bộ/bất đồng bộ cho từng cặp service.
