@@ -43,6 +43,16 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
   - Gán chủ cần `user_id` và `tenant_id` nên đứng sau hai bước tạo.
   - Tạo tài khoản và tạo chuỗi không phụ thuộc nhau, đổi chỗ được; bước dễ hỏng đứng trước. Ví dụ 100 người đăng ký, 30 người trùng email, 2 người trùng slug: tạo tài khoản trước thì chạy bước bù 2 lần, tạo chuỗi trước thì 30 lần.
   - Email đứng cuối: email chỉ gửi được hoặc lỗi, không thu hồi được; gửi trước mà bước sau hỏng thì chủ chuỗi nhận email chúc mừng nhưng không thật sự được giao chuỗi.
+- Lưu trạng thái & chống tạo trùng:
+  - Bảng lưu trạng thái `saga_instances` nằm trong PostgreSQL của identity.
+  - Bước 1: tạo user và tạo bản ghi saga (trạng thái `STEP_2_CALL_BOOKING`) gom trong 1 local DB transaction nguyên tử.
+  - Chống tạo trùng: identity gửi `Idempotency-Key: <saga_id>` khi gọi booking và authz; booking có bảng `idempotency_keys` (`UNIQUE`) để trả kết quả cũ nếu retry.
+- Trạng thái trung gian (Semantic Lock) & kích hoạt:
+  - Ngay sau bước 2, chuỗi và chi nhánh mang trạng thái `PENDING_ONBOARDING`.
+  - Bảo vệ: các API tìm kiếm/công khai của booking lọc `WHERE status = 'ACTIVE'`, người ngoài không thấy chuỗi dở dang (chống Dirty Read).
+  - Kích hoạt: identity gửi lệnh đổi trạng thái chuỗi sang `ACTIVE` ngay sau khi authz gán chủ thành công.
+- Xử lý khi bù (authz lỗi):
+  - Thử lại tối đa 3 lần với exponential backoff. Nếu vẫn lỗi, chọn fail-fast: đổi trạng thái chuỗi ở booking sang `FAILED` (không xoá cứng), vô hiệu hoá user ở identity, trả lỗi cho người dùng đăng ký lại (lý do: tránh vòng lặp vô tận và khó kiểm soát nếu có lỗi logic lặp lại).
 - Bước email lỗi (máy chủ mail chết): không chạy bù các bước trước; lưu vào hàng đợi, máy chủ khôi phục thì gửi. Email chỉ để thông báo, không ảnh hưởng việc chủ chuỗi tiếp nhận chuỗi.
 
 ## 4. Mô hình dữ liệu
@@ -142,5 +152,4 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 - Hai tab của An cùng nhận 401 và cùng gửi refresh token R1 gần như cùng lúc: identity phân biệt với bị đánh cắp thế nào? Bước "kiểm chưa dùng → đánh dấu đã dùng" có nguyên tử không?
 - “Đăng xuất tất cả” / “đăng xuất thiết bị này” khi nghi bị lộ: ngoài mục chặn access token, còn phải làm gì với refresh token (kẻ gian làm mới là có token `iat` mới)?
 - Khởi động nguội: bản booking khởi động đúng lúc Redis chết thì danh sách chặn trong RAM có gì; khởi động lúc identity chết thì lấy public key (JWKS) ở đâu?
-- Saga cho luồng chủ chuỗi tự đăng ký: đã chốt orchestration và thứ tự các bước (mục 3); còn mở: nơi lưu trạng thái saga (identity chết giữa chừng thì biết dừng ở bước nào), trạng thái trung gian người dùng nhìn thấy và cách booking xử lý chuỗi chưa xong, gọi lại một bước khi timeout mà không tạo trùng.
 - Bảng đồng bộ/bất đồng bộ cho từng cặp service.
