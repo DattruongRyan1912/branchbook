@@ -30,6 +30,16 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 
 - Hạ tầng dùng chung: 1 MySQL, 1 PostgreSQL (mỗi service có database + user riêng, không truy vấn chéo), 1 Redis (tách theo tiền tố khoá), RabbitMQ, kho S3-compatible (image `minio/minio` đã ngừng phát hành từ 10/2025, không còn kéo được từ Docker Hub — chọn RustFS/Garage/SeaweedFS ở tuần 7).
 
+### Giao tiếp giữa các service (Đồng bộ / Bất đồng bộ)
+
+| Cặp service (Gọi → Nhận) | Nghiệp vụ | Giao thức / Kiểu | Lý do lựa chọn | Xử lý khi bên nhận gặp sự cố (Failover / Retry) |
+|---|---|---|---|---|
+| `identity` → `booking` | Saga tạo chuỗi (bước 2) | Đồng bộ (REST HTTP) | Cần `tenant_id` ngay để chuyển tiếp sang bước 3 (gán chủ chuỗi) | Thử lại tối đa 3 lần với `Idempotency-Key`; quá số lần thì fail-fast (chuỗi `FAILED`, vô hiệu user, báo lỗi đăng ký lại) |
+| `identity` → `authz` | Cấp token lúc đăng nhập | Đồng bộ (REST HTTP) | Cần danh sách vai trò (`roles`, `branches`, `tenant_id`) mới nhất và chính xác để ký vào JWT | Từ chối cấp token, trả lỗi 503 Service Unavailable (tránh cấp token mang quyền cũ đã bị thu hồi) |
+| `authz` → `booking` | Kiểm tra chi nhánh khi gán quyền | Đồng bộ (REST HTTP) | Đảm bảo tính toàn vẹn (fail-closed), chỉ cho phép gán quyền vào chi nhánh thật sự tồn tại và thuộc đúng chuỗi | Thử lại 3–5 lần; nếu vẫn lỗi thì chặn không cho gán, báo lỗi để quản lý thử lại sau |
+| `booking` → `notification` | Sự kiện đặt lịch, huỷ, đóng chi nhánh | Bất đồng bộ (RabbitMQ) | Không làm chậm luồng đặt lịch của khách hàng; tách rời hoàn toàn nghiệp vụ cốt lõi khỏi hạ tầng email | Nghiệp vụ đặt lịch vẫn hoàn tất thành công; event lưu bền vững trong Transactional Outbox / Queue, worker gửi bù khi notification phục hồi |
+| `identity` → `booking` | Lệnh thu hồi token | Bất đồng bộ (Redis Stream `revocations:stream`) | Tránh đưa Redis vào đường nóng của API; Booking đọc nạp vào RAM Octane | Lệnh lưu trong stream; Booking khi sống lại đọc từ con trỏ cuối cùng để nạp lại RAM |
+
 ### Event và thông báo
 - Event mang đủ dữ liệu mà service phát sở hữu, chỉ mang id với dữ liệu của service khác. Ví dụ `booking.cancelled`: `event_id`, `correlation_id`, `booking_id`, `user_id`, giờ bắt đầu, tên phòng, tên chi nhánh, lý do huỷ.
 - Notification giữ bản sao `user_id → email, tên, ngôn ngữ` (chỉ trường cần dùng), khai báo + bind queue trước, nạp toàn bộ một lần, rồi áp các `user.updated` đã xếp hàng trong lúc nạp (đã đổi 2026-10-13 vì: nạp trước rồi mới tạo queue thì event phát ra ở khoảng giữa không vào queue nào và mất); nhận `user.anonymized` thì ẩn danh bản sao. Lúc gửi email không phụ thuộc identity.
@@ -152,4 +162,3 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 - Hai tab của An cùng nhận 401 và cùng gửi refresh token R1 gần như cùng lúc: identity phân biệt với bị đánh cắp thế nào? Bước "kiểm chưa dùng → đánh dấu đã dùng" có nguyên tử không?
 - “Đăng xuất tất cả” / “đăng xuất thiết bị này” khi nghi bị lộ: ngoài mục chặn access token, còn phải làm gì với refresh token (kẻ gian làm mới là có token `iat` mới)?
 - Khởi động nguội: bản booking khởi động đúng lúc Redis chết thì danh sách chặn trong RAM có gì; khởi động lúc identity chết thì lấy public key (JWKS) ở đâu?
-- Bảng đồng bộ/bất đồng bộ cho từng cặp service.
