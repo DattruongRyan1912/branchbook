@@ -120,6 +120,9 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 - Credential stuffing: làm cả 4 lớp — chặn mật khẩu đã lộ (Have I Been Pwned, k-anonymity), xác minh thiết bị lạ qua email, bộ đếm tỷ lệ sai toàn hệ thống bật CAPTCHA, email báo đăng nhập từ thiết bị mới.
 - Không bao giờ lưu mật khẩu, kể cả mật khẩu nhập sai.
 
+### Xác thực giữa các service
+- mTLS (Mutual TLS): xác thực hai chiều ở tầng Transport bằng chứng chỉ số nội bộ (Internal CA). Mỗi service có cặp certificate/private key riêng; bắt tay TLS kiểm tra danh tính trước khi request chạm vào tầng ứng dụng. Mã hoá toàn bộ dữ liệu trên đường truyền nội bộ; chuyển dịch tự nhiên sang Service Mesh (Istio/Linkerd) khi lên Kubernetes ở tuần 10.
+
 ## 7. Điểm tranh chấp dữ liệu
 > Chuyện gì xảy ra khi 2 người cùng đặt 1 slot? Bạn chọn cách nào (lock, unique, cả hai…) và vì sao?
 
@@ -152,10 +155,10 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 | Booking giữ danh sách chặn | Octane | Tra Redis mỗi request: Redis vào đường nóng. APCu: APCu của CLI tách khỏi FPM nên tiến trình nghe stream không đổ dữ liệu vào được |
 | Kiểm chi nhánh khi gán quyền | Gọi đồng bộ sang booking | Bản sao qua event: thao tác hiếm, không đáng giữ bản sao. Không kiểm: gán được vào chi nhánh không tồn tại hoặc của chuỗi khác |
 | Xoá dữ liệu nghiệp vụ | Đổi trạng thái | Xoá cứng: mất lịch sử booking, báo cáo cũ sai |
+| Xác thực giữa các service | mTLS (Mutual TLS) | Shared Secret (header tĩnh): không định danh được bên gọi, không có TTL, đổi key phải restart đồng loạt. Service Token (OAuth2 JWT): vẫn chạy trên HTTP plaintext trong mạng nội bộ nếu thiếu TLS, tốn công sinh/verify JWT ở tầng ứng dụng |
 
 ## 11. Còn mở
 - Ngưỡng đăng nhập sai (mấy lần, trong bao lâu, cửa sổ cố định hay trượt); Redis giữ bộ đếm chết thì đóng, mở hay đếm tạm trong RAM từng bản; refresh token có hạn tuyệt đối không; khoá đánh dấu kiểm mấy giây một lần.
-- Xác thực giữa các service (authz gọi API nội bộ của booking).
 - Lệnh chặn đã ghi vào bảng `revocations` nhưng `XADD` lỗi vì Redis đang chết (Redis không mất dữ liệu nên khoá `revocations:ready` vẫn còn): ai phát lại lệnh đó, và con số “lọt tối đa `min(thời gian sự cố, 15 phút)`” ở mục 8 còn đúng không?
 - Phát hiện refresh token bị dùng lại: ngoài thu hồi cả chuỗi refresh, có ghi thêm mục chặn `sid` để access token hiện tại của kẻ gian chết ngay không?
 - Redis mất **một phần** dữ liệu (chết đột ngột rồi quay về bản chụp RDB cũ, hoặc failover sang replica chưa đồng bộ kịp): khoá `revocations:ready` vẫn còn nhưng các mục `XADD` mới nhất đã mất, refresh token đã đăng xuất/đã dùng có thể sống lại — ai phát hiện, xử lý thế nào?
