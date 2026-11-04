@@ -5,14 +5,51 @@
 > Mục 3, 4 (sở hữu dữ liệu), 6, 8, 9, 10 ghi lại từ buổi hỏi–đáp 2026-10-11/12. Phần đánh dấu *(lời giải mẫu)* là chỗ người viết đã xin xem lời giải. Mục còn dòng `>` là chưa trả lời.
 
 ## 1. Bối cảnh & mục tiêu
-> Hệ thống giải quyết vấn đề gì, cho ai? Phạm vi MVP gồm gì, KHÔNG gồm gì?
+
+- **Đối tượng khách hàng & Bối cảnh bài toán:**
+  - **Giai Điệu Music** *(tenant chính để tính quy mô & tải)*: chuỗi trung tâm âm nhạc tại TP.HCM gồm **4 chi nhánh** (Quận 1, Quận 3, Bình Thạnh, Thủ Đức), tổng **32 phòng tập** (piano, guitar, phòng ban nhạc — trung bình 8 phòng/chi nhánh, dải 6–10 phòng) và khoảng **1.200 hội viên**. Hiện hội viên đặt lịch qua Zalo/điện thoại, lễ tân ghi thủ công trên Google Sheet dẫn đến thường xuyên trùng phòng (overbooking) vào giờ cao điểm 18:00–21:00; hội viên không tự xem được phòng trống; quản lý thiếu góc nhìn tổng hợp về lịch đặt và công suất phòng giữa các chi nhánh.
+  - **Rhythm House** *(tenant thứ hai — 2 chi nhánh)*: seed sẵn để kiểm chứng tính cô lập dữ liệu giữa các chuỗi.
+- **Phạm vi trong lộ trình (In-Scope):**
+  - *MVP `v0.1` (cuối tuần 3 — `booking` + `identity` + `web` mỏng):* Đăng ký/đăng nhập xác thực bằng JWT RS256; seed sẵn 2 chuỗi giả lập; hội viên xem danh sách chi nhánh, phòng và slot trống theo ngày, đặt lịch giữ chỗ khung 60 phút (kiểm tra gói hội viên hiệu lực và chống đặt trùng ở tầng DB), huỷ lịch trước giờ bắt đầu tối thiểu 2 giờ, xem lịch đặt cá nhân; quản lý xem lịch đặt của chi nhánh (polling).
+  - *Mở rộng trong kiến trúc đích (`v0.2` → `v1.1`, tuần 4–8):* Thu hồi access token qua Redis Stream & chống dò mật khẩu (`v0.2`); gửi email xác nhận đặt/huỷ và nhắc lịch bất đồng bộ qua Transactional Outbox + RabbitMQ (`notification`, `v0.2`); phân quyền theo chuỗi/chi nhánh (`authz`), chủ chuỗi tự đăng ký qua Saga, đóng chi nhánh/khoá phòng bảo trì, lưu ảnh phòng (`v1.0`); cập nhật lịch real-time qua WebSocket (`v1.1`).
+- **Ngoài phạm vi (Out-of-Scope):**
+  - Cổng thanh toán trực tuyến bên thứ ba (thay bằng gói hội viên giả lập cấp sẵn theo thời hạn hiệu lực).
+  - Nghiệp vụ nhân sự/đào tạo: chấm công giáo viên, tính lương, lớp học nhóm có sức chứa hoặc đặt lịch lặp lại định kỳ.
+  - Kênh thông báo/marketing thương mại bên ngoài (Zalo ZNS, SMS), ứng dụng mobile native, đa ngôn ngữ.
+  - Hệ thống AI tự động xếp hoặc tối ưu hoá lịch tập (tách biệt với tính năng thử nghiệm tìm slot trống từ câu truy vấn tự nhiên ở tuần 10).
 
 ## 2. Yêu cầu
+
 ### Chức năng
-> Liệt kê các hành động chính của hội viên và quản lý chi nhánh.
+
+- **Hội viên (`member`):**
+  - Xem danh sách chi nhánh, phòng/tiện ích và trạng thái các slot (`free`, `booked`, `past`) theo chi nhánh và ngày (trong cửa sổ từ hôm nay đến tối đa 14 ngày tới).
+  - Đặt slot phòng theo khung cố định **60 phút** (yêu cầu có gói hội viên đang hiệu lực tại chuỗi đó; hỗ trợ header `Idempotency-Key` chống tạo trùng khi client retry).
+  - Huỷ slot đã đặt của chính mình trước giờ bắt đầu tối thiểu **2 giờ** (slot sau khi huỷ được giải phóng ngay để hội viên khác đặt lại).
+  - Xem danh sách lịch đặt sắp tới / lịch sử đặt phòng cá nhân; nhận email xác nhận đặt/huỷ và nhắc lịch bất đồng bộ (từ `v0.2`).
+- **Quản lý / Nhân viên chi nhánh (`branch_manager`):**
+  - Xem bảng tổng hợp lịch đặt phòng (calendar view) của toàn bộ phòng thuộc chi nhánh mình quản lý theo ngày/tuần.
+  - Mở hoặc đóng/khoá phòng và slot khi bảo trì nhạc cụ, sửa chữa (chặn nhận booking mới vào khung bị khoá).
+  - Huỷ slot do sự cố bất khả kháng tại chi nhánh và phát sự kiện qua RabbitMQ để `notification` gửi email thông báo cho hội viên bị ảnh hưởng.
+- *(Mở rộng ở `v1.0` — Chủ chuỗi `owner`):* Tự đăng ký chuỗi mới (luồng Saga ở Mục 3), tạo chi nhánh/phòng, gán quyền quản lý chi nhánh, đóng cửa chi nhánh (`branch.closed` ở Mục 8).
 
 ### Phi chức năng
-> Số chi nhánh/phòng, lưu lượng giờ cao điểm, mục tiêu p95 cho API đặt lịch, mức độ nhất quán cần có (được phép đặt trùng không?), múi giờ.
+
+- **Quy mô hệ thống (theo chuỗi chuẩn Giai Điệu Music):** **4 chi nhánh**, **32 phòng** (trung bình 8 phòng/chi nhánh), khoảng **1.200 hội viên** hoạt động (chạy chung hạ tầng đa tenant với chuỗi thứ hai Rhythm House 2 chi nhánh).
+- **Giờ cao điểm & ước tính lưu lượng:**
+  - *Số slot giờ cao điểm:* Khung **18:00–21:00** (3 giờ) $\times$ 32 phòng $\times$ 1 slot/giờ (khung 60 phút) = **96 slot giờ cao điểm/ngày** toàn chuỗi (toàn ngày 09:00–21:00 tương đương 384 slot/ngày).
+  - *Cách tính lưu lượng đặt lịch:* Ước tính khi mở lịch đặt mới hoặc vào đầu khung tối, có **10%–15% hội viên** ($120\text{–}180$ người; tính cả lượt chọn lại khi trượt phòng giờ vàng tương đương $\sim 150\text{–}225$ request `POST /bookings`) thao tác dồn trong **15 phút** $\rightarrow$ lưu lượng ghi duy trì **10–15 lượt đặt/phút** ($\approx 0,2\text{–}0,25\text{ RPS}$ ghi; lưu lượng đọc xem slot trống cao gấp ~15–20 lần, khoảng $3\text{–}5\text{ RPS}$).
+  - *Tải tranh chấp đột biến (Burst / Hot-spot):* Khi nhiều hội viên cùng nhắm vào 1 phòng giờ vàng (vd. phòng ban nhạc 19:00–20:00), hệ thống cần chịu được burst **20–50 request/giây** tranh chấp trực tiếp trên cùng 1 slot.
+- **Mục tiêu độ trễ (Target SLO — chưa đo thực tế, sẽ kiểm chứng bằng k6 ở tuần 9):**
+  - API đặt lịch (`POST /api/v1/bookings`): mục tiêu **`p95 < 200ms`** trên kiến trúc đích Laravel 13 (Octane/Swoole, chuyển đổi ở tuần 4) + MySQL InnoDB có index (kỳ vọng đường không tranh chấp `< 50ms`, khi chờ khoá dòng ngắn `< 200ms`).
+  - API tra cứu slot trống (`GET /api/v1/branches/{branch}/slots`): mục tiêu **`p95 < 100ms`** (truy vấn gom theo chi nhánh/ngày, không N+1).
+- **Mức độ nhất quán dữ liệu (Consistency):**
+  - Luồng đặt/huỷ slot: **Strong Consistency (Zero Overbooking)** trong MySQL của `booking` — không cho phép tồn tại 2 booking đang hoạt động (`CONFIRMED`) chiếm cùng `(room_id, start_at)` dưới mọi mức độ gọi đồng thời (kết hợp row-level lock trong transaction và ràng buộc `UNIQUE` ở DB; chấp nhận trả `409 Conflict` khi thua tranh chấp).
+  - Luồng thông báo & đồng bộ phụ trợ: **Eventual Consistency** (trễ vài giây qua Transactional Outbox + RabbitMQ cho email và qua Redis Stream cho danh sách chặn token).
+- **Múi giờ (Timezone):**
+  - Dữ liệu thời gian trong DB lưu thống nhất theo **UTC**.
+  - Payload API trao đổi theo chuẩn **ISO 8601 có offset** (vd. `2026-11-02T18:00:00+07:00`).
+  - Các quy tắc nghiệp vụ phụ thuộc ngày/giờ địa phương (giờ mở/đóng cửa chi nhánh, mốc "hôm nay", giới hạn đặt trước 14 ngày) tính theo múi giờ của chi nhánh, mặc định **`Asia/Ho_Chi_Minh` (UTC+7)**.
 
 ## 3. Kiến trúc service
 
