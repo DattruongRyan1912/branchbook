@@ -121,8 +121,54 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 - Nguyên tắc xoá: dữ liệu nghiệp vụ chỉ **đổi trạng thái**; dữ liệu cá nhân khi người dùng yêu cầu thì **ẩn danh hoá**; dữ liệu kỹ thuật tạm (token, mục chặn, bộ đếm, outbox đã phát) thì **xoá/để tự hết hạn**; file thì đánh dấu rồi dọn theo chính sách.
 
 ### Bảng, cột, ràng buộc, index
-> Bảng nào, cột chính nào, quan hệ ra sao, ràng buộc (FK, unique, check) và index nào phục vụ query nào.
-> Câu còn mở: booking đã huỷ (chỉ đổi trạng thái) không được chiếm slot, nhưng vẫn phải giữ ràng buộc unique chống đặt trùng.
+
+#### 1. Quy ước định danh & ranh giới dữ liệu xuyên service
+- **Booking (MySQL 8.4 InnoDB):** **Không có bảng users** trong service booking (gỡ bỏ các migration mặc định của Laravel ở B2). Mọi bảng nội bộ dùng khoá chính `BIGINT UNSIGNED AUTO_INCREMENT`. Cột `user_id` lưu `CHAR(36)` (chuỗi UUID lấy từ claim `sub` của access token do identity cấp), **không tạo Foreign Key xuyên database**.
+- **Múi giờ:** Các mốc thời điểm lưu dạng `DATETIME` theo chuẩn **UTC**. Giờ mở/đóng cửa chi nhánh lưu `TIME` theo múi giờ địa phương chi nhánh (`Asia/Ho_Chi_Minh`).
+- **Nền tảng các service khác:** Sử dụng **PostgreSQL 17**, mỗi service sở hữu một database và tài khoản quản trị riêng, không truy vấn chéo.
+
+#### 2. Các bảng của Booking Service (MySQL 8.4)
+- **`tenants`:**
+  - Cột chính: `id` (PK, BIGINT UNSIGNED), `name` (VARCHAR(255)), `slug` (VARCHAR(255)), `status` (ENUM: `PENDING_ONBOARDING`, `ACTIVE`, `SUSPENDED`, `FAILED`), timestamps.
+  - Ràng buộc: `UNIQUE KEY uq_tenants_slug (slug)`.
+- **`branches`:**
+  - Cột chính: `id` (PK, BIGINT UNSIGNED), `tenant_id` (FK $\rightarrow$ `tenants.id`), `name`, `address`, `opening_time` (TIME, mặc định `09:00:00`), `closing_time` (TIME, mặc định `21:00:00`), `status` (ENUM: `PENDING_ONBOARDING`, `ACTIVE`, `CLOSED`), timestamps.
+  - Ràng buộc: `CONSTRAINT chk_branches_time CHECK (closing_time > opening_time)`.
+  - Index: `INDEX idx_branches_tenant (tenant_id)` phục vụ API tra cứu danh sách chi nhánh theo tenant.
+- **`rooms`:**
+  - Cột chính: `id` (PK, BIGINT UNSIGNED), `branch_id` (FK $\rightarrow$ `branches.id`), `name`, `room_type` (ENUM: `PIANO`, `GUITAR`, `BAND`, `VOCAL`), `capacity` (TINYINT UNSIGNED), `status` (ENUM: `ACTIVE`, `MAINTENANCE`), `photo_file_id` (VARCHAR(64) NULL, tham chiếu storage), timestamps.
+  - Ràng buộc: `CONSTRAINT chk_rooms_capacity CHECK (capacity > 0)`.
+  - Index: `INDEX idx_rooms_branch (branch_id)` phục vụ truy vấn danh sách phòng theo chi nhánh để dựng lưới slot.
+- **`memberships`:**
+  - Cột chính: `id` (PK, BIGINT UNSIGNED), `tenant_id` (FK $\rightarrow$ `tenants.id`), `user_id` (CHAR(36)), `status` (ENUM: `ACTIVE`, `EXPIRED`, `CANCELLED`), `starts_at` (DATETIME), `ends_at` (DATETIME), timestamps.
+  - Ràng buộc: `CONSTRAINT chk_memberships_time CHECK (ends_at > starts_at)`.
+  - Index: `INDEX idx_memberships_tenant_user_active (tenant_id, user_id, status, ends_at)` phục vụ kiểm tra gói hội viên đang hiệu lực của user X trong tenant Y khi đặt lịch.
+- **`bookings`:**
+  - Cột chính: `id` (PK, BIGINT UNSIGNED), `tenant_id` (FK $\rightarrow$ `tenants.id` — chủ đích **denormalize** trực tiếp để lọc và cô lập dữ liệu đa tenant cực nhanh, không cần JOIN qua `rooms` $\rightarrow$ `branches`), `room_id` (FK $\rightarrow$ `rooms.id`), `user_id` (CHAR(36)), `start_at` (DATETIME), `end_at` (DATETIME), `status` (ENUM: `CONFIRMED`, `CANCELLED`, `COMPLETED`), `idempotency_key` (VARCHAR(64) NULL), timestamps.
+  - **Cột sinh (Generated Column):** `active_slot_unique VARCHAR(100) GENERATED ALWAYS AS (CASE WHEN status = 'CONFIRMED' THEN CONCAT(room_id, '@', start_at) ELSE NULL END) STORED`.
+  - Ràng buộc:
+    - `CONSTRAINT uq_bookings_active_slot UNIQUE (active_slot_unique)`: Giải pháp cốt lõi cho câu hỏi mở. Khi `CONFIRMED`, cột sinh nhận giá trị định danh duy nhất `room_id@start_at` $\rightarrow$ DB chặn đứng 2 booking trùng phòng cùng giờ. Khi `CANCELLED` hoặc `COMPLETED`, cột sinh nhận `NULL` (MySQL InnoDB cho phép nhiều giá trị NULL trong unique index) $\rightarrow$ slot được giải phóng cho hội viên khác đặt lại mà vẫn giữ nguyên bản ghi huỷ để audit.
+    - `CONSTRAINT uq_bookings_idem UNIQUE (tenant_id, user_id, idempotency_key)`: Chống đặt trùng khi client gửi lại cùng key (cho phép nhiều NULL khi client không gửi key).
+    - `CONSTRAINT chk_bookings_time CHECK (end_at > start_at)`: Chặn lỗi logic thời gian kết thúc không sau thời gian bắt đầu.
+  - Index:
+    - `INDEX idx_bookings_user_calendar (tenant_id, user_id, start_at)` phục vụ API "Lịch của tôi".
+    - `INDEX idx_bookings_room_calendar (room_id, start_at)` phục vụ API xem lịch phòng / tính trạng thái slot theo ngày không bị N+1.
+- **Bảng kỹ thuật của `booking`:**
+  - `idempotency_keys`: `(tenant_id, user_id, idempotency_key)` UNIQUE, `request_hash` (CHAR(64)), `status` (PENDING, PROCESSED, FAILED), `response_code`, `response_body` (JSON), `expires_at` (DATETIME) $\rightarrow$ phục vụ trả lại kết quả cũ khi retry, báo 422 khi khác body, báo 409 khi đang xử lý dở ở B5 và dùng cho Saga tạo chuỗi.
+  - `outbox_events` (`v0.2`): `event_id` (CHAR(36) UUID, UNIQUE), `correlation_id` (CHAR(36)), `event_type`, `payload` (JSON), `published_at` (DATETIME NULL) $\rightarrow$ phục vụ Transactional Outbox phát event sang RabbitMQ.
+
+#### 3. Các bảng chính của các service khác (PostgreSQL 17)
+- **`identity`:**
+  - `users`: `id` (UUID, PK), `email` (VARCHAR(255), UNIQUE), `password_hash`, `status` (ACTIVE, SUSPENDED), timestamps.
+  - `revocations`: `id` (UUID, PK), `type` (LOGOUT_DEVICE theo `sid` / LOGOUT_ALL theo `sub`), `target_id` (VARCHAR(100)), `revoked_at` (TIMESTAMPTZ), `expires_at` (TIMESTAMPTZ) $\rightarrow$ nguồn sự thật cho danh sách chặn phát qua Redis Stream.
+  - `saga_instances`: `id` (UUID, PK kiêm Idempotency-Key), `tenant_name`, `email`, `current_step`, `status` (PENDING, COMPLETED, FAILED), `payload` (JSONB), timestamps $\rightarrow$ theo dõi Saga tự đăng ký chủ chuỗi.
+  - `refresh_tokens`: Lưu hash refresh token, `user_id` (UUID), `family_id` (rotation), `expires_at`, `is_revoked` (theo Mục 6 hiện lưu trên Redis làm nguồn sự thật theo TTL; ánh xạ sang bảng này nếu lưu trữ bền vững trên PostgreSQL).
+- **`authz`:**
+  - `user_roles`: `id` (UUID, PK), `user_id` (UUID), `role` (VARCHAR(50): `owner`, `branch_manager`), `tenant_id` (BIGINT NOT NULL), `branch_id` (BIGINT NULL), timestamps. Ràng buộc `CONSTRAINT uq_user_roles UNIQUE NULLS NOT DISTINCT (user_id, role, tenant_id, branch_id)` $\rightarrow$ chặn gán trùng vai trò cấp chuỗi khi `branch_id IS NULL`.
+- **`notification`:**
+  - `pending_notifications` (kiêm inbox_events): `event_id` (UUID, PK/UNIQUE chống nhận trùng khi consume RabbitMQ), `user_id` (UUID), `correlation_id` (UUID gom email 30 giây), `event_type`, `payload` (JSONB), `received_at`, `sent_at` $\rightarrow$ phục vụ `FOR UPDATE SKIP LOCKED` gom và gửi email.
+  - `email_logs`: `id` (UUID, PK), `user_id` (UUID), `correlation_id` (UUID), `recipient_email`, `subject`, `template_name`, `status` (SENT, FAILED), `sent_at` $\rightarrow$ lưu vết audit email.
+  - `recipient_contacts`: `user_id` (UUID, PK), `email`, `name`, `locale` (mặc định `vi`) $\rightarrow$ bản sao tối thiểu đồng bộ qua event từ identity, cập nhật khi đổi email hoặc ẩn danh hoá.
 
 ## 5. API
 > Bảng: method, path, mô tả, mã lỗi có thể trả.
