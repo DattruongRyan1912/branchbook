@@ -171,7 +171,77 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
   - `recipient_contacts`: `user_id` (UUID, PK), `email`, `name`, `locale` (mặc định `vi`) $\rightarrow$ bản sao tối thiểu đồng bộ qua event từ identity, cập nhật khi đổi email hoặc ẩn danh hoá.
 
 ## 5. API
-> Bảng: method, path, mô tả, mã lỗi có thể trả.
+
+### 5.1 Chuẩn hoá định dạng phản hồi lỗi (Error Response Format)
+Áp dụng thống nhất cho toàn bộ hệ thống gồm Laravel (`booking`) và các service NestJS (`identity`, `authz`, `notification`):
+
+1. **Lỗi nghiệp vụ & quyền hạn / bảo mật (`401`, `403`, `404`, `409`, `429`, `500`):**
+   ```json
+   {
+     "error": {
+       "code": "<ERROR_CODE>",
+       "message": "<Mô tả lỗi bằng tiếng Việt cho người dùng/client>"
+     }
+   }
+   ```
+   *Bảng mã lỗi nghiệp vụ chuẩn:*
+   | Mã lỗi (`code`) | HTTP Status | Ý nghĩa nghiệp vụ |
+   |---|---|---|
+   | `UNAUTHENTICATED` | 401 | Thiếu token, token không hợp lệ hoặc hết hạn |
+   | `INVALID_CREDENTIALS` | 401 | Email hoặc mật khẩu không chính xác |
+   | `MEMBERSHIP_INACTIVE` | 403 | Gói hội viên không tồn tại hoặc đã hết hiệu lực tại chuỗi |
+   | `BOOKING_CANCEL_RESTRICTED` | 403 | Không phải chủ booking hoặc huỷ sát giờ (< 2 giờ trước giờ bắt đầu) |
+   | `FORBIDDEN` | 403 | Không có quyền thao tác trên tài nguyên của tenant/chi nhánh khác |
+   | `NOT_FOUND` | 404 | Tài nguyên không tồn tại hoặc không thuộc tenant trong token |
+   | `SLOT_UNAVAILABLE` | 409 | Khung giờ phòng đã có người đặt trước (xung đột unique slot) |
+   | `BOOKING_ALREADY_CANCELLED` | 409 | Lịch đặt phòng này đã bị huỷ trước đó |
+   | `IDEMPOTENCY_IN_PROGRESS` | 409 | Request cùng `Idempotency-Key` đang được hệ thống xử lý |
+   | `EMAIL_ALREADY_EXISTS` | 409 | Email đã được sử dụng bởi một tài khoản khác |
+   | `TOO_MANY_ATTEMPTS` | 429 | Vượt quá số lần thử đăng nhập cho phép (bảo vệ chống brute-force) |
+
+2. **Lỗi kiểm tra tính hợp lệ dữ liệu (`422 Unprocessable Entity`):**
+   Chuẩn validation mặc định của Laravel `FormRequest` và NestJS `ValidationPipe`:
+   ```json
+   {
+     "message": "Dữ liệu gửi lên không hợp lệ.",
+     "errors": {
+       "start_at": ["Thời gian đặt phòng phải khớp với khung giờ cố định 60 phút."],
+       "date": ["Ngày tra cứu không được vượt quá 14 ngày tới."]
+     }
+   }
+   ```
+
+### 5.2 Booking Service (Laravel 13 Octane, prefix `/api/v1`)
+Định tuyến qua Traefik Gateway: `http://localhost:8100/booking/api/v1/...` (hoặc trực tiếp qua container: `http://localhost:8180/api/v1/...`).
+
+| Method | Endpoint | Mô tả & Nghiệp vụ cốt lõi | Request Body / Params | Headers | Mã phản hồi (HTTP Status) |
+|---|---|---|---|---|---|
+| `GET` | `/api/v1/branches` | Lấy danh sách chi nhánh thuộc tenant trong token | Không | `Authorization: Bearer <jwt>` | `200 OK`, `401` |
+| `GET` | `/api/v1/branches/{branch}/slots` | Tra cứu lưới slot (`free`, `booked`, `past`) theo ngày (trong phạm vi 14 ngày) | Query: `?date=YYYY-MM-DD` | `Authorization: Bearer <jwt>` | `200 OK`, `401`, `404` (sai branch/tenant), `422` (ngày quá khứ hoặc > 14 ngày) |
+| `POST` | `/api/v1/bookings` | Đặt slot phòng khung 60 phút (kiểm tra gói hội viên, chống đặt trùng ở DB) | `{"room_id": 3, "start_at": "ISO-8601"}` | `Authorization: Bearer <jwt>`, `Idempotency-Key: <uuid>` (tuỳ chọn) | `201 Created`, `401`, `403` (`MEMBERSHIP_INACTIVE`), `404`, `409` (`SLOT_UNAVAILABLE`), `422` |
+| `POST` | `/api/v1/bookings/{booking}/cancel` | Huỷ lịch đặt phòng trước giờ bắt đầu tối thiểu 2 giờ (giải phóng slot) | Không | `Authorization: Bearer <jwt>` | `200 OK`, `401`, `403` (không phải chủ hoặc < 2h), `404`, `409` (đã huỷ) |
+| `GET` | `/api/v1/bookings/my` | Xem danh sách lịch đặt cá nhân (sắp tới & lịch sử đặt phòng) | Query: `?status=confirmed&page=1` | `Authorization: Bearer <jwt>` | `200 OK`, `401` |
+| `POST` | `/api/v1/internal/tenants` | API nội bộ (mTLS) cho Saga Identity tạo chuỗi + chi nhánh đầu | `{"tenant_name": "...", "slug": "...", "admin_email": "..."}` | `X-Service-Client: identity`, `Idempotency-Key: <saga_id>` | `201 Created`, `401`, `409`, `422` |
+
+### 5.3 Identity Service (NestJS, prefix `/identity/api/v1`)
+Định tuyến qua Traefik Gateway: `http://localhost:8100/identity/api/v1/...`.
+
+| Method | Endpoint | Mô tả & Nghiệp vụ cốt lõi | Request Body / Params | Headers | Mã phản hồi (HTTP Status) |
+|---|---|---|---|---|---|
+| `POST` | `/identity/api/v1/auth/register` | Đăng ký tài khoản chủ chuỗi mới & kích hoạt Saga onboarding | `{"email": "...", "password": "...", "tenant_name": "..."}` | `Idempotency-Key: <uuid>` (tuỳ chọn) | `201 Created`, `409` (`EMAIL_ALREADY_EXISTS`), `422` |
+| `POST` | `/identity/api/v1/auth/login` | Đăng nhập email/mật khẩu, trả access token (15p) + cookie refresh token (1 tuần) | `{"email": "...", "password": "..."}` | Không | `200 OK`, `401` (`INVALID_CREDENTIALS`), `422`, `429` (`TOO_MANY_ATTEMPTS`) |
+| `POST` | `/identity/api/v1/auth/refresh` | Làm mới access token từ cookie refresh token (xoay vòng token / rotation) | Không | Cookie: `refresh_token=...` | `200 OK`, `401` (`REFRESH_TOKEN_EXPIRED`, `TOKEN_REUSED`) |
+| `POST` | `/identity/api/v1/auth/logout` | Đăng xuất thiết bị hiện tại (thu hồi `sid`, phát event qua Redis Stream) | Không | `Authorization: Bearer <jwt>`, Cookie: `refresh_token=...` | `200 OK`, `401` |
+| `POST` | `/identity/api/v1/auth/logout-all` | Đăng xuất mọi thiết bị của người dùng (thu hồi `sub`, phát Redis Stream) | Không | `Authorization: Bearer <jwt>` | `200 OK`, `401` |
+| `GET` | `/identity/.well-known/jwks.json` | Công khai public key để các service tải về tự kiểm chữ ký RS256 | Không | Không | `200 OK` |
+
+### 5.4 Authz Service (NestJS, prefix `/authz/api/v1`)
+Định tuyến qua Traefik Gateway: `http://localhost:8100/authz/api/v1/...`.
+
+| Method | Endpoint | Mô tả & Nghiệp vụ cốt lõi | Request Body / Params | Headers | Mã phản hồi (HTTP Status) |
+|---|---|---|---|---|---|
+| `POST` | `/authz/api/v1/internal/roles` | API nội bộ (mTLS) cho Saga Identity gán vai trò `owner` hoặc chủ chuỗi gán `branch_manager` | `{"user_id": "...", "role": "owner", "tenant_id": 1, "branch_id": null}` | `X-Service-Client: identity`, `Idempotency-Key: <saga_id>` | `201 Created`, `401`, `403`, `409`, `422` |
+| `GET` | `/authz/api/v1/users/{user_id}/roles` | Lấy danh sách vai trò theo chuỗi/chi nhánh của user (cho identity lúc cấp/refresh token) | URL Param: `user_id` | `X-Service-Client: identity` (mTLS) | `200 OK`, `401`, `404` |
 
 ## 6. Xác thực & phân quyền
 
