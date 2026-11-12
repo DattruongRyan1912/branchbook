@@ -207,7 +207,21 @@ Microservice ngay từ đầu (không tách dần từ monolith): muốn luyện
 - mTLS (Mutual TLS): xác thực hai chiều ở tầng Transport bằng chứng chỉ số nội bộ (Internal CA). Mỗi service có cặp certificate/private key riêng; bắt tay TLS kiểm tra danh tính trước khi request chạm vào tầng ứng dụng. Mã hoá toàn bộ dữ liệu trên đường truyền nội bộ; chuyển dịch tự nhiên sang Service Mesh (Istio/Linkerd) khi lên Kubernetes ở tuần 10.
 
 ## 7. Điểm tranh chấp dữ liệu
-> Chuyện gì xảy ra khi 2 người cùng đặt 1 slot? Bạn chọn cách nào (lock, unique, cả hai…) và vì sao?
+
+- **Kịch bản tranh chấp thực tế (Race Condition):**
+  - Hai hội viên khác nhau cùng gửi request đặt chung một phòng vào cùng một khung giờ (`room_id`, `start_at`) gần như đồng thời trong cùng 1 giây (đặc biệt vào khung giờ cao điểm 18:00–21:00).
+  - Cả hai request ban đầu đều đọc trạng thái và thấy phòng còn trống, đồng thời kiểm tra thấy gói hội viên (`memberships`) của cả hai đều đang hoạt động hợp lệ.
+
+- **Cơ chế xử lý & Đánh giá các phương án:**
+  - *Cạm bẫy Gap Lock & Deadlock của `SELECT ... FOR UPDATE`:* Khi slot còn trống, trong bảng `bookings` **chưa tồn tại dòng nào**. Việc chạy `SELECT ... FOR UPDATE` trực tiếp trên `bookings` theo `(room_id, start_at)` khi bản ghi chưa tồn tại sẽ kích hoạt **Gap Lock / Next-Key Lock** khoá khoảng trống trên index. Khi 2 transaction đồng thời giữ Gap Lock (vì gap lock không chặn nhau lúc đọc) rồi cùng thực hiện `INSERT`, cả hai sẽ chờ nhau giải phóng lock dẫn đến **Deadlock (`ERROR 1213`)** và làm sụt giảm thông lượng giờ cao điểm.
+  - *Phân định trách nhiệm từng lớp (theo tiêu chí B1 & ADR-0001):*
+    - **Lớp Idempotency (`uq_bookings_idem` / `idempotency_keys`):** Chỉ chặn trường hợp **cùng 1 hội viên bấm đúp hoặc client retry** do rớt mạng (trả lại response `201 Created` cũ hoặc `409 Conflict` nếu request đầu đang xử lý dở), **không** chặn được 2 hội viên khác nhau cùng đặt 1 slot.
+    - **Lớp Transaction nghiệp vụ & Khoá dòng cha (nếu cần tuần tự hoá kiểm tra phức tạp):** Gom toàn bộ bước kiểm tra và `INSERT` vào `DB::transaction`. (Lưu ý khi thực nghiệm so sánh ở B4/B6: nếu cần Pessimistic Lock để xếp hàng các request đặt cùng phòng mà không dính Gap Lock trên `bookings`, chỉ khoá dòng cha **đã tồn tại** trên bảng `rooms` bằng `SELECT id FROM rooms WHERE id = ? FOR UPDATE`; tuy nhiên lock ở tầng ứng dụng không thể thay thế ràng buộc vật lý ở DB nếu có luồng ghi khác quên đặt lock).
+    - **Lớp Ràng buộc `UNIQUE` trên cột sinh ở tầng Database (Chốt chặn quyết định duy nhất — Single Source of Truth / The Ultimate Safety Net):** Sử dụng `CONSTRAINT uq_bookings_active_slot UNIQUE (active_slot_unique)` trên cột sinh `active_slot_unique` (`CONCAT(room_id, '@', start_at)` khi `status = 'CONFIRMED'`, ngược lại `NULL`). MySQL InnoDB tự động áp khoá bản ghi nguyên tử ngay tại thời điểm `INSERT` vào unique index: đảm bảo tuyệt đối không thể tồn tại 2 bản ghi `CONFIRMED` trùng `(room_id, start_at)`, đồng thời tự động giải phóng slot (`NULL`) khi booking chuyển sang `CANCELLED` hoặc `COMPLETED` mà vẫn giữ nguyên lịch sử phục vụ audit.
+
+- **Kết quả xử lý tại từng nhánh:**
+  - **Request nhanh hơn (Thắng):** MySQL chèn thành công bản ghi vào bảng `bookings` với `status = 'CONFIRMED'`, cột sinh `active_slot_unique` nhận giá trị `room_id@start_at`, commit transaction $\rightarrow$ API trả về **`201 Created`** kèm thông tin lịch đặt.
+  - **Request chậm hơn (Thua):** MySQL chặn ngay tại bước `INSERT` và quăng lỗi **`ERROR 1062 (Duplicate entry for key 'uq_bookings_active_slot')`** $\rightarrow$ Laravel bắt ngoại lệ `Illuminate\Database\UniqueConstraintViolationException`, rollback transaction an toàn $\rightarrow$ API trả về mã lỗi chuẩn RESTful **`409 Conflict`** kèm mã lỗi `SLOT_ALREADY_BOOKED` (*"Phòng đã có người đặt trong khung giờ này. Vui lòng chọn khung giờ hoặc phòng khác."*).
 
 ## 8. Lỗi & trường hợp đặc biệt
 
